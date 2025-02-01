@@ -1,6 +1,6 @@
 # @altanlabs/database
 
-A robust TypeScript-based database integration package for the Altan ecosystem. This package provides flexible and powerful utilities for configuring and managing database connections, interacting with backend APIs via axios, integrating Redux state management, and more. It is designed to work seamlessly in React applications.
+A robust TypeScript-based database integration package for the Altan ecosystem. This package provides flexible and powerful utilities for configuring and managing database connections, interacting with backend APIs via axios, and integrating Redux state management in React applications. The library relies on explicit, prop-based configuration and a single axios instance that's injected into your Redux async thunks.
 
 ---
 
@@ -10,14 +10,13 @@ A robust TypeScript-based database integration package for the Altan ecosystem. 
 - [Configuration](#configuration)
 - [Usage](#usage)
   - [DatabaseProvider](#databaseprovider)
-  - [Configuration Utilities](#configuration-utilities)
   - [Axios Instance Creation](#axios-instance-creation)
   - [Redux Tables Slice](#redux-tables-slice)
+  - [Querying Records](#querying-records)
 - [Advanced Topics](#advanced-topics)
   - [Dashboard Example](#dashboard-example)
   - [Redux Store Structure](#redux-store-structure)
   - [Available Tables](#available-tables)
-  - [Database & Table Setup](#database--table-setup)
 - [API Endpoints](#api-endpoints)
 - [License](#license)
 
@@ -31,7 +30,7 @@ Install the package via npm:
 npm install @altanlabs/database
 ```
 
-For projects using yarn:
+Or using yarn:
 
 ```bash
 yarn add @altanlabs/database
@@ -41,19 +40,18 @@ yarn add @altanlabs/database
 
 ## Configuration
 
-Before using the package, set up your database configuration using the provided utilities. In your application entry point, initialize the configuration:
+The configuration is now passed directly to the `DatabaseProvider` component. Define your configuration object in your application entry point. For example:
 
 ```typescript
-import { setDatabaseConfig } from "@altanlabs/database";
-
-setDatabaseConfig({
+// src/config.ts
+export const databaseConfig = {
   API_BASE_URL: "https://api.example.com",
   SAMPLE_TABLES: {
     // Pre-configured tables
     users: "1b52a5c4-ce93-4790-aa2a-d186daa2068d",
     posts: "d8812981-b246-4de4-8ef9-40fa8a7dbbda"
   }
-});
+};
 ```
 
 ---
@@ -62,41 +60,31 @@ setDatabaseConfig({
 
 ### DatabaseProvider
 
-Use the `DatabaseProvider` component to wrap your application and provide Redux state for managing database operations.
+Wrap your application in the `DatabaseProvider` and pass your configuration via the `config` prop. This provider creates a single axios instance and injects it into all async thunk actions.
 
 ```tsx
+// src/App.tsx
 import React from "react";
 import { DatabaseProvider } from "@altanlabs/database";
+import { databaseConfig } from "./config";
+import YourApplication from "./YourApplication";
 
 const App = () => (
-  <DatabaseProvider>
-    {/* Your application components */}
+  <DatabaseProvider config={databaseConfig}>
+    <YourApplication />
   </DatabaseProvider>
 );
 
 export default App;
 ```
 
-### Configuration Utilities
-
-Access and modify your database configuration using the following functions:
-
-- `setDatabaseConfig(config: DatabaseConfig)`: Set the configuration for your project.
-- `getDatabaseConfig()`: Retrieve the currently set database configuration.
-
 ### Axios Instance Creation
 
-Create an axios instance with a base URL derived from your database configuration:
-
-```typescript
-import { createAltanDB } from "@altanlabs/database";
-
-const apiClient = createAltanDB();
-```
+The library exports a `createAltanDB` function that creates an axios instance using the provided API base URL. However, you do not need to call this function directly. The `DatabaseProvider` calls it once using the configuration supplied to create the axios instance that is injected via Redux Thunk's extra argument.
 
 ### Redux Tables Slice
 
-The package exposes several Redux actions and thunks to interact with table records. Here are some example operations:
+The package exposes several Redux actions and thunks (such as `fetchTableRecords`, `createRecord`, etc.) to interact with table records. These thunks automatically use the injected axios instance.
 
 #### Example: Fetching Table Records
 
@@ -129,21 +117,97 @@ dispatch(createRecord({
 
 ---
 
+### Querying Records
+
+The database supports advanced querying capabilities with filtering, sorting, and pagination. When querying records, you can specify various options using the `queryParams` field. These options include:
+
+- **Filters**  
+  Apply one or more criteria to narrow down the records.  
+  **Operators available:**
+  - `eq` - Equals
+  - `neq` - Not equals (includes NULL values)
+  - `gt` - Greater than
+  - `gte` - Greater than or equal
+  - `lt` - Less than
+  - `lte` - Less than or equal
+  - `contains` - Case-insensitive text search
+  - `startswith` - Case-insensitive prefix search
+  - `endswith` - Case-insensitive suffix search
+
+- **Sorting**  
+  Sort by multiple fields using the `sort` parameter. Each sort item requires a `field` and a `direction` ("asc" or "desc").  
+  If no sorting is provided, the default is sorting by `id` in ascending order.
+
+- **Pagination**  
+  Cursor-based pagination is used to efficiently load large data sets.
+  - Use `limit` to control the number of records per page.  
+  - A `pageToken` (returned as `nextPageToken`) will be provided if more records exist.  
+  - Pass the `pageToken` in subsequent requests to retrieve the next set of records.
+
+- **Fields & Amount**  
+  Specify a subset of fields to retrieve using `fields`.  
+  The `amount` parameter determines how many records to return. It defaults to `"all"` if not provided and can be explicitly set to `"all"`, `"first"`, or `"one"`.
+
+#### Examples
+
+```typescript
+// Basic query
+dispatch(fetchTableRecords({
+  tableName: "users",
+  queryParams: { 
+    limit: 20 
+  }
+}));
+
+// Advanced query with filters and sorting
+dispatch(fetchTableRecords({
+  tableName: "users",
+  queryParams: {
+    filters: [
+      { field: "username", operator: "contains", value: "john" },
+      { field: "signup_date", operator: "gte", value: "2024-01-01" }
+    ],
+    sort: [
+      { field: "created_time", direction: "desc" }
+    ],
+    limit: 20,
+    fields: ["id", "username", "email"],
+    amount: "all" // Defaults to "all" if not specified
+  }
+}));
+
+// Pagination example:
+// First page fetch:
+const firstPage = await dispatch(fetchTableRecords({
+  tableName: "users",
+  queryParams: { limit: 20 }
+}));
+// Fetch the next page:
+if (firstPage.nextPageToken) {
+  dispatch(fetchTableRecords({
+    tableName: "users",
+    queryParams: {
+      limit: 20,
+      pageToken: firstPage.nextPageToken
+    }
+  }));
+}
+```
+
+---
+
 ## Advanced Topics
 
 ### Dashboard Example
 
-The package can be effectively used as part of a larger dashboard application that includes:
-- **Multiple chart types using Recharts**
-- **Card-based layout**
-- **Activity feeds**
-- **Quick action buttons**
-
-Combine these UI elements with the data management provided by the package to create powerful and responsive dashboards.
+Integrate the database operations into a larger dashboard application that might feature:
+- Multiple chart components using Recharts
+- Card-based layouts
+- Activity feeds and quick action buttons
 
 ### Redux Store Structure
 
-The Redux store integrated into this package maintains the following structure:
+The integrated Redux store uses the following structure:
 
 ```javascript
 const initialState = {
@@ -159,84 +223,24 @@ const initialState = {
     byTableId: {},
   },
   loading: {
-    tables: 'idle',
-    records: 'idle',
-    schemas: 'idle',
+    tables: "idle",
+    records: "idle",
+    schemas: "idle",
   },
   error: null,
+  initialized: {} // Tracks whether a table's data has been fetched.
 };
 ```
 
 ### Available Tables
 
-Pre-configured tables can be defined via the `SAMPLE_TABLES` configuration object:
+Pre-configured tables are defined via the `SAMPLE_TABLES` configuration object:
 
 ```javascript
 const SAMPLE_TABLES = {
-  users: '1b52a5c4-ce93-4790-aa2a-d186daa2068d',
-  posts: 'd8812981-b246-4de4-8ef9-40fa8a7dbbda',
+  users: "1b52a5c4-ce93-4790-aa2a-d186daa2068d",
+  posts: "d8812981-b246-4de4-8ef9-40fa8a7dbbda",
 };
-```
-
-### Database & Table Setup
-
-When creating new tables, adhere to a consistent schema structure. Below is an example table schema for a "Users" table:
-
-```javascript
-{
-  "table": {
-    "base_id": "a8a0f7dd-d854-4245-9c42-d73edb4ae309",
-    "name": "Users",
-    "version": 1,
-    "order": 1.0,
-    "fields": {
-      "items": [
-        {
-          "name": "username",
-          "type": "singleLineText",
-          "cell_value_type": "string",
-          "not_null": false,
-          "unique": true,
-          "order": 1.0
-        },
-        {
-          "name": "email",
-          "type": "email",
-          "cell_value_type": "string",
-          "not_null": true,
-          "unique": true,
-          "order": 2.0
-        },
-        {
-          "name": "signup_date",
-          "type": "date",
-          "cell_value_type": "date",
-          "not_null": false,
-          "options": {
-            "date_options": {
-              "time_zone": "GMT/UTC",
-              "date_format": "ISO"
-            }
-          },
-          "order": 3.0
-        }
-      ]
-    }
-  }
-}
-```
-
-For updating or inserting records, follow the structure:
-
-```javascript
-dispatch(createRecord({
-  tableName: "users",
-  record: {
-    username: "john_doe",
-    email: "john@example.com",
-    signup_date: "2024-01-22"
-  }
-}));
 ```
 
 ---
@@ -260,7 +264,7 @@ The database components interact with the following API endpoints:
 - `DELETE /table/{table_id}/record/{record_id}`  
   Delete a record from the table.
 
-Ensure your backend API conforms to these endpoints and data structures for smooth integration.
+Ensure your backend API conforms to these endpoints and data structures for seamless integration.
 
 ---
 

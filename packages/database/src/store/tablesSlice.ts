@@ -1,12 +1,8 @@
 // src/databases/tablesSlice.ts
-import { createSlice, createAsyncThunk, ActionReducerMapBuilder } from "@reduxjs/toolkit";
-import { createAltanDB } from "./axios";
-import { getDatabaseConfig } from "./config"
-
-// Define RootState for typing getState in our thunks
-export interface RootState {
-  tables: TableState;
-}
+import { createSlice, createAsyncThunk, ActionReducerMapBuilder, PayloadAction } from "@reduxjs/toolkit";
+import type { AxiosInstance } from "axios";
+import type { RootState } from "./types"; // Use the RootState from the dedicated types file
+import type { DatabaseConfig } from "../config";
 
 export interface TableRecord {
   id: string;
@@ -44,6 +40,7 @@ export interface TableState {
   };
   loading: LoadingState;
   error: string | null;
+  initialized: Record<string, boolean>;
 }
 
 export interface QueryParams {
@@ -51,6 +48,7 @@ export interface QueryParams {
   sort?: unknown[];
   limit?: number;
   pageToken?: string;
+  fields?: string[];
   amount?: string;
 }
 
@@ -71,28 +69,30 @@ const initialState: TableState = {
     records: "idle",
     schemas: "idle"
   },
-  error: null
+  error: null,
+  initialized: {}
 };
 
 export const fetchTableRecords = createAsyncThunk<
   { tableId: string; records: TableRecordItem[]; total: number; nextPageToken: string },
   { tableName: string; queryParams?: QueryParams },
-  { state: RootState }
+  { state: RootState; extra: { api: AxiosInstance } }
 >(
   "tables/fetchRecords",
   async (
     { tableName, queryParams = {} }: { tableName: string; queryParams?: QueryParams },
-    thunkAPI: { getState: () => RootState }
+    thunkAPI
   ) => {
     const state = thunkAPI.getState();
     const tableId = state.tables.tables.byName[tableName];
     if (!tableId) throw new Error(`Table ${tableName} not found`);
-    const altan_db = createAltanDB();
-    const response = await altan_db.post(`/table/${tableId}/record/query`, {
+    const { api } = thunkAPI.extra as { api: AxiosInstance };
+    const response = await api.post(`/table/${tableId}/record/query`, {
       filters: queryParams.filters || [],
       sort: queryParams.sort || [],
       limit: queryParams.limit || 100,
       page_token: queryParams.pageToken,
+      fields: queryParams.fields,
       amount: queryParams.amount || "all"
     });
     return {
@@ -112,13 +112,13 @@ export const createRecord = createAsyncThunk<
   "tables/createRecord",
   async (
     { tableName, record }: { tableName: string; record: unknown },
-    thunkAPI: { getState: () => RootState }
+    thunkAPI
   ) => {
     const state = thunkAPI.getState();
     const tableId = state.tables.tables.byName[tableName];
     if (!tableId) throw new Error(`Table ${tableName} not found`);
-    const altan_db = createAltanDB();
-    const response = await altan_db.post(`/table/${tableId}/record`, {
+    const { api } = thunkAPI.extra as { api: AxiosInstance };
+    const response = await api.post(`/table/${tableId}/record`, {
       records: [{ fields: record }]
     });
     return {
@@ -136,13 +136,13 @@ export const updateRecord = createAsyncThunk<
   "tables/updateRecord",
   async (
     { tableName, recordId, updates }: { tableName: string; recordId: string; updates: unknown },
-    thunkAPI: { getState: () => RootState }
+    thunkAPI
   ) => {
     const state = thunkAPI.getState();
     const tableId = state.tables.tables.byName[tableName];
     if (!tableId) throw new Error(`Table ${tableName} not found`);
-    const altan_db = createAltanDB();
-    const response = await altan_db.patch(`/table/${tableId}/record/${recordId}`, {
+    const { api } = thunkAPI.extra as { api: AxiosInstance };
+    const response = await api.patch(`/table/${tableId}/record/${recordId}`, {
       fields: updates
     });
     return {
@@ -160,13 +160,13 @@ export const deleteRecord = createAsyncThunk<
   "tables/deleteRecord",
   async (
     { tableName, recordId }: { tableName: string; recordId: string },
-    thunkAPI: { getState: () => RootState }
+    thunkAPI
   ) => {
     const state = thunkAPI.getState();
     const tableId = state.tables.tables.byName[tableName];
     if (!tableId) throw new Error(`Table ${tableName} not found`);
-    const altan_db = createAltanDB();
-    await altan_db.delete(`/table/${tableId}/record/${recordId}`);
+    const { api } = thunkAPI.extra as { api: AxiosInstance };
+    await api.delete(`/table/${tableId}/record/${recordId}`);
     return { tableId, recordId };
   }
 );
@@ -174,18 +174,15 @@ export const deleteRecord = createAsyncThunk<
 export const fetchTableSchema = createAsyncThunk<
   { tableId: string; schema: unknown },
   { tableName: string },
-  { state: RootState }
+  { state: RootState; extra: { api: AxiosInstance } }
 >(
   "tables/fetchSchema",
-  async (
-    { tableName }: { tableName: string },
-    thunkAPI: { getState: () => RootState }
-  ) => {
+  async ({ tableName }, thunkAPI) => {
     const state = thunkAPI.getState();
     const tableId = state.tables.tables.byName[tableName];
     if (!tableId) throw new Error(`Table ${tableName} not found`);
-    const altan_db = createAltanDB();
-    const response = await altan_db.get(`/table/${tableId}`);
+    const { api } = thunkAPI.extra as { api: AxiosInstance };
+    const response = await api.get(`/table/${tableId}`);
     return { tableId, schema: response.data.table };
   }
 );
@@ -194,14 +191,15 @@ const tablesSlice = createSlice({
   name: "tables",
   initialState,
   reducers: {
-    initializeTables: (state: TableState) => {
-      const { SAMPLE_TABLES } = getDatabaseConfig();
-      Object.entries(SAMPLE_TABLES).forEach(([name, id]: [string, string]) => {
+    initializeTables: (state: TableState, action: PayloadAction<DatabaseConfig>) => {
+      const { SAMPLE_TABLES } = action.payload;
+      Object.entries(SAMPLE_TABLES).forEach(([name, id]) => {
         state.tables.byId[id] = { id, name };
         state.tables.byName[name] = id;
         if (!state.tables.allIds.includes(id)) {
           state.tables.allIds.push(id);
         }
+        state.initialized[id] = false;
       });
     }
   },
@@ -210,102 +208,60 @@ const tablesSlice = createSlice({
       .addCase(fetchTableRecords.pending, (state: TableState) => {
         state.loading.records = "loading";
       })
-      .addCase(
-        fetchTableRecords.fulfilled,
-        (
-          state: TableState,
-          action: {
-            payload: {
-              tableId: string;
-              records: TableRecordItem[];
-              total: number;
-              nextPageToken: string;
-            };
-          }
-        ) => {
-          const { tableId, records, total } = action.payload;
-          state.records.byTableId[tableId] = {
-            items: records,
-            total,
-            lastUpdated: new Date().toISOString()
-          };
-          state.loading.records = "idle";
-        }
-      )
+      .addCase(fetchTableRecords.fulfilled, (state: TableState, action) => {
+        const { tableId, records, total } = action.payload;
+        state.records.byTableId[tableId] = {
+          items: records,
+          total,
+          lastUpdated: new Date().toISOString()
+        };
+        state.loading.records = "idle";
+        state.initialized[tableId] = true;
+      })
       .addCase(
         fetchTableRecords.rejected,
-        (
-          state: TableState,
-          action: { error: { message?: string } }
-        ) => {
+        (state: TableState, action: { error: { message?: string } }) => {
           state.loading.records = "idle";
           state.error = action.error.message || null;
         }
       )
-      .addCase(
-        createRecord.fulfilled,
-        (
-          state: TableState,
-          action: { payload: { tableId: string; record: TableRecordItem } }
-        ) => {
-          const { tableId, record } = action.payload;
-          if (state.records.byTableId[tableId]?.items) {
-            state.records.byTableId[tableId].items.push(record);
+      .addCase(createRecord.fulfilled, (state: TableState, action) => {
+        const { tableId, record } = action.payload;
+        if (state.records.byTableId[tableId]?.items) {
+          state.records.byTableId[tableId].items.push(record);
+        }
+      })
+      .addCase(updateRecord.fulfilled, (state: TableState, action) => {
+        const { tableId, record } = action.payload;
+        if (state.records.byTableId[tableId]?.items) {
+          const index = state.records.byTableId[tableId].items.findIndex(
+            (r: TableRecordItem) => r.id === record.id
+          );
+          if (index !== -1) {
+            state.records.byTableId[tableId].items[index] = record;
           }
         }
-      )
-      .addCase(
-        updateRecord.fulfilled,
-        (
-          state: TableState,
-          action: { payload: { tableId: string; record: TableRecordItem } }
-        ) => {
-          const { tableId, record } = action.payload;
-          if (state.records.byTableId[tableId]?.items) {
-            const index = state.records.byTableId[tableId].items.findIndex(
-              (r: TableRecordItem) => r.id === record.id
+      })
+      .addCase(deleteRecord.fulfilled, (state: TableState, action) => {
+        const { tableId, recordId } = action.payload;
+        if (state.records.byTableId[tableId]?.items) {
+          state.records.byTableId[tableId].items =
+            state.records.byTableId[tableId].items.filter(
+              (record: TableRecordItem) => record.id !== recordId
             );
-            if (index !== -1) {
-              state.records.byTableId[tableId].items[index] = record;
-            }
-          }
         }
-      )
-      .addCase(
-        deleteRecord.fulfilled,
-        (
-          state: TableState,
-          action: { payload: { tableId: string; recordId: string } }
-        ) => {
-          const { tableId, recordId } = action.payload;
-          if (state.records.byTableId[tableId]?.items) {
-            state.records.byTableId[tableId].items =
-              state.records.byTableId[tableId].items.filter(
-                (record: TableRecordItem) => record.id !== recordId
-              );
-          }
-        }
-      )
+      })
       .addCase(fetchTableSchema.pending, (state: TableState) => {
         state.loading.schemas = "loading";
       })
-      .addCase(
-        fetchTableSchema.fulfilled,
-        (
-          state: TableState,
-          action: { payload: { tableId: string; schema: unknown } }
-        ) => {
-          const { tableId, schema } = action.payload;
-          state.schemas.byTableId[tableId] = schema;
-          state.loading.schemas = "idle";
-        }
-      )
+      .addCase(fetchTableSchema.fulfilled, (state: TableState, action) => {
+        const { tableId, schema } = action.payload;
+        state.schemas.byTableId[tableId] = schema;
+        state.loading.schemas = "idle";
+      })
       .addCase(
         fetchTableSchema.rejected,
-        (
-          state: TableState,
-          action: { error: { message?: string } }
-        ) => {
+        (state: TableState, action: { error: { message?: string } }) => {
           state.loading.schemas = "idle";
           state.error = action.error.message || null;
         }
@@ -334,3 +290,4 @@ export const selectTableSchema = (state: RootState, tableName: string) => {
 export const selectSchemaLoading = (state: RootState) =>
   state.tables.loading.schemas === "loading";
 export default tablesSlice.reducer;
+
