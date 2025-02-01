@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "es6",
+    "module": "commonjs",
+    "lib": [
+      "es2017",
+      "dom"
+    ],
+    "jsx": "react",
+    "types": ["jest"],
+    "esModuleInterop": true,
+    "strict": true
+  },
+  "include": ["src", "tests"]
+}
