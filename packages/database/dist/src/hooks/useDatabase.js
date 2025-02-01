@@ -54,6 +54,8 @@ function useDatabase(table) {
     var _this = this;
     var dispatch = (0, useAppDispatch_1.useAppDispatch)();
     var _a = (0, react_1.useState)(null), nextPageToken = _a[0], setNextPageToken = _a[1];
+    var initializationRef = (0, react_1.useRef)({});
+    var requestInProgress = (0, react_1.useRef)({});
     // Use memoized selector for better performance
     var tableData = (0, react_redux_1.useSelector)(function (state) { return (0, tablesSlice_1.selectTableData)(state, table); });
     var isLoadingRecords = (0, react_redux_1.useSelector)(function (state) { return state.tables.loading.records === "loading"; });
@@ -66,20 +68,60 @@ function useDatabase(table) {
         initialized: (tableData === null || tableData === void 0 ? void 0 : tableData.initialized) || false,
         lastUpdated: (tableData === null || tableData === void 0 ? void 0 : tableData.lastUpdated) || null
     }); }, [tableData]), records = _b.records, schema = _b.schema, initialized = _b.initialized, lastUpdated = _b.lastUpdated;
-    // Load schema if needed
+    // Separate effects for better control
     (0, react_1.useEffect)(function () {
-        if (table && !schema && !isLoadingSchema) {
-            dispatch((0, tablesSlice_1.fetchTableSchema)({ tableName: table }));
-        }
+        var loadSchema = function () { return __awaiter(_this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (!table ||
+                            schema ||
+                            isLoadingSchema ||
+                            requestInProgress.current["schema_".concat(table)]) {
+                            return [2 /*return*/];
+                        }
+                        requestInProgress.current["schema_".concat(table)] = true;
+                        return [4 /*yield*/, dispatch((0, tablesSlice_1.fetchTableSchema)({ tableName: table }))];
+                    case 1:
+                        _a.sent();
+                        requestInProgress.current["schema_".concat(table)] = false;
+                        return [2 /*return*/];
+                }
+            });
+        }); };
+        loadSchema();
     }, [table, schema, isLoadingSchema, dispatch]);
-    // Initial data load
     (0, react_1.useEffect)(function () {
-        if (table && !initialized && !isLoadingRecords) {
-            dispatch((0, tablesSlice_1.fetchTableRecords)({
-                tableName: table,
-                queryParams: { limit: 20 }
-            }));
-        }
+        var loadRecords = function () { return __awaiter(_this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (!table ||
+                            initialized ||
+                            isLoadingRecords ||
+                            initializationRef.current[table] ||
+                            requestInProgress.current["records_".concat(table)]) {
+                            return [2 /*return*/];
+                        }
+                        initializationRef.current[table] = true;
+                        requestInProgress.current["records_".concat(table)] = true;
+                        return [4 /*yield*/, dispatch((0, tablesSlice_1.fetchTableRecords)({
+                                tableName: table,
+                                queryParams: { limit: 20 }
+                            }))];
+                    case 1:
+                        _a.sent();
+                        requestInProgress.current["records_".concat(table)] = false;
+                        return [2 /*return*/];
+                }
+            });
+        }); };
+        loadRecords();
+        return function () {
+            initializationRef.current[table] = false;
+            requestInProgress.current["schema_".concat(table)] = false;
+            requestInProgress.current["records_".concat(table)] = false;
+        };
     }, [table, initialized, isLoadingRecords, dispatch]);
     var refresh = (0, react_1.useCallback)(function () {
         var args_1 = [];
@@ -153,8 +195,8 @@ function useDatabase(table) {
                 }
             });
         }); },
-        modifyRecord: function (recordId, updates) { return __awaiter(_this, void 0, void 0, function () {
-            var error_3;
+        modifyRecord: function (recordId, updates, onError) { return __awaiter(_this, void 0, void 0, function () {
+            var err_1;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -164,15 +206,15 @@ function useDatabase(table) {
                         _a.sent();
                         return [3 /*break*/, 3];
                     case 2:
-                        error_3 = _a.sent();
-                        console.error('Failed to modify record:', error_3);
+                        err_1 = _a.sent();
+                        onError === null || onError === void 0 ? void 0 : onError(err_1);
                         return [3 /*break*/, 3];
                     case 3: return [2 /*return*/];
                 }
             });
         }); },
-        removeRecord: function (recordId) { return __awaiter(_this, void 0, void 0, function () {
-            var error_4;
+        removeRecord: function (recordId, onError) { return __awaiter(_this, void 0, void 0, function () {
+            var err_2;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -182,8 +224,8 @@ function useDatabase(table) {
                         _a.sent();
                         return [3 /*break*/, 3];
                     case 2:
-                        error_4 = _a.sent();
-                        console.error('Failed to remove record:', error_4);
+                        err_2 = _a.sent();
+                        onError === null || onError === void 0 ? void 0 : onError(err_2);
                         return [3 /*break*/, 3];
                     case 3: return [2 /*return*/];
                 }

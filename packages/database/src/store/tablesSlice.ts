@@ -6,7 +6,8 @@ import {
   TableRecordItem,
   TableRecordData,
   QueryParams,
-  RootState
+  RootState,
+  TableSchema
 } from "./types";
 import type { DatabaseConfig } from "../config";
 
@@ -125,7 +126,7 @@ export const deleteRecord = createAsyncThunk<
 );
 
 export const fetchTableSchema = createAsyncThunk<
-  { tableId: string; schema: unknown },
+  { tableId: string; schema: TableSchema },
   { tableName: string },
   { state: RootState; extra: { api: AxiosInstance } }
 >(
@@ -136,7 +137,45 @@ export const fetchTableSchema = createAsyncThunk<
     if (!tableId) throw new Error(`Table ${tableName} not found`);
     const { api } = thunkAPI.extra;
     const response = await api.get(`/table/${tableId}`);
-    return { tableId, schema: response.data.table };
+    return { tableId, schema: response.data as TableSchema };
+  }
+);
+
+export const createRecords = createAsyncThunk<
+  { tableId: string; records: TableRecordItem[] },
+  { tableName: string; records: unknown[] },
+  { state: RootState; extra: { api: AxiosInstance }; rejectValue: string }
+>(
+  "tables/createRecords",
+  async ({ tableName, records }, thunkAPI) => {
+    try {
+      const tableId = getTableId(thunkAPI.getState(), tableName);
+      const { api } = thunkAPI.extra;
+      const response = await api.post(`/table/${tableId}/record`, {
+        records: records.map(record => ({ fields: record }))
+      });
+      return { tableId, records: response.data.records };
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error instanceof Error ? error.message : 'Failed to create records');
+    }
+  }
+);
+
+export const deleteRecords = createAsyncThunk<
+  { tableId: string; recordIds: string[] },
+  { tableName: string; recordIds: string[] },
+  { state: RootState }
+>(
+  "tables/deleteRecords",
+  async ({ tableName, recordIds }, thunkAPI) => {
+    const state = thunkAPI.getState();
+    const tableId = state.tables.tables.byName[tableName];
+    if (!tableId) throw new Error(`Table ${tableName} not found`);
+    const { api } = thunkAPI.extra as { api: AxiosInstance };
+    await api.delete(`/table/${tableId}/record`, {
+      data: { records: recordIds }
+    });
+    return { tableId, recordIds };
   }
 );
 
@@ -215,6 +254,21 @@ const tablesSlice = createSlice({
       .addCase(fetchTableSchema.rejected, (state, action) => {
         state.loading.schemas = "idle";
         state.error = action.error.message || null;
+      })
+      .addCase(createRecords.fulfilled, (state, action) => {
+        const { tableId, records } = action.payload;
+        if (state.records.byTableId[tableId]?.items) {
+          state.records.byTableId[tableId].items.push(...records);
+        }
+      })
+      .addCase(deleteRecords.fulfilled, (state, action) => {
+        const { tableId, recordIds } = action.payload;
+        const items = state.records.byTableId[tableId]?.items;
+        if (items) {
+          state.records.byTableId[tableId].items = items.filter(
+            (r) => !recordIds.includes(r.id)
+          );
+        }
       });
   }
 });

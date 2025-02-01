@@ -215,9 +215,15 @@ Create, update, and delete records:
 
 ```tsx
 function UserManager() {
-  const { addRecord, modifyRecord, removeRecord } = useDatabase("users");
+  const { 
+    addRecord, 
+    modifyRecord, 
+    removeRecord,
+    addRecords,    // Bulk create
+    removeRecords  // Bulk delete
+  } = useDatabase("users");
 
-  // Create
+  // Single record operations
   const handleCreate = async () => {
     await addRecord({
       name: "John Doe",
@@ -225,16 +231,26 @@ function UserManager() {
     });
   };
 
-  // Update
   const handleUpdate = async (id: string) => {
     await modifyRecord(id, {
       status: "inactive"
     });
   };
 
-  // Delete
   const handleDelete = async (id: string) => {
     await removeRecord(id);
+  };
+
+  // Bulk operations
+  const handleBulkCreate = async () => {
+    await addRecords([
+      { name: "John Doe", email: "john@example.com" },
+      { name: "Jane Doe", email: "jane@example.com" }
+    ]);
+  };
+
+  const handleBulkDelete = async () => {
+    await removeRecords(["id1", "id2", "id3"]);
   };
 
   return <div>{/* Your UI */}</div>;
@@ -265,12 +281,16 @@ const {
   schemaLoading: boolean,
   nextPageToken: string | null,
   
-  // Methods
+  // Single Record Operations
   refresh: (options?: FetchOptions) => Promise<void>,
   fetchNextPage: () => Promise<void>,
   addRecord: (record: any) => Promise<void>,
   modifyRecord: (id: string, updates: any) => Promise<void>,
-  removeRecord: (id: string) => Promise<void>
+  removeRecord: (id: string) => Promise<void>,
+  
+  // Bulk Operations
+  addRecords: (records: any[]) => Promise<void>,
+  removeRecords: (ids: string[]) => Promise<void>
 } = useDatabase(tableName: string);
 ```
 
@@ -336,7 +356,9 @@ function TableManager() {
     refresh,
     addRecord,
     modifyRecord,
-    removeRecord 
+    removeRecord,
+    addRecords,
+    removeRecords
   } = useDatabase("users");
 
   // Apply filters and sorting
@@ -348,10 +370,20 @@ function TableManager() {
     });
   };
 
-  // CRUD operations
+  // Single record operations
   const handleAdd = () => addRecord({ name: "New User" });
   const handleUpdate = (id: string) => modifyRecord(id, { status: "updated" });
   const handleDelete = (id: string) => removeRecord(id);
+
+  // Bulk operations
+  const handleBulkAdd = () => {
+    addRecords([
+      { name: "User 1" },
+      { name: "User 2" }
+    ]);
+  };
+  
+  const handleBulkDelete = (ids: string[]) => removeRecords(ids);
 
   if (isLoading) return <div>Loading...</div>;
 
@@ -359,6 +391,7 @@ function TableManager() {
     <div>
       <button onClick={handleFilter}>Filter Active Users</button>
       <button onClick={handleAdd}>Add User</button>
+      <button onClick={handleBulkAdd}>Add Multiple Users</button>
       {records.map(record => (
         <div key={record.id}>
           {record.fields.name}
@@ -366,6 +399,9 @@ function TableManager() {
           <button onClick={() => handleDelete(record.id)}>Delete</button>
         </div>
       ))}
+      <button onClick={() => handleBulkDelete(records.map(r => r.id))}>
+        Delete All Shown
+      </button>
     </div>
   );
 }

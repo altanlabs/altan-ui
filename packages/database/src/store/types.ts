@@ -28,21 +28,75 @@ export interface LoadingState {
   schemas: LoadingStatus;
 }
 
-export interface TableState {
-  tables: {
-    byId: Record<string, TableRecord>;
-    byName: Record<string, string>;
-    allIds: string[];
-  };
-  schemas: {
-    byTableId: Record<string, unknown>;
-  };
-  records: {
-    byTableId: Record<string, TableRecordData>;
-  };
-  loading: LoadingState;
-  error: string | null;
-  initialized: Record<string, boolean>;
+// Schema Types
+export interface TableFieldOption {
+  color?: string
+  label?: string
+}
+
+export interface TableFieldOptions {
+  required?: boolean
+  date_options?: {
+    include_time?: boolean
+  }
+  select_options?: TableFieldOption[]
+}
+
+export interface TableField {
+  id: string
+  table_id: string
+  name: string
+  type: string
+  cell_value_type: string
+  is_multiple_cell_value: boolean
+  db_field_type: string
+  db_field_name: string
+  not_null: boolean
+  unique: boolean
+  is_primary: boolean
+  is_computed: boolean
+  is_pending: boolean
+  has_error: boolean
+  order: number
+  version: number
+  created_by: string
+  date_creation: string
+  options?: TableFieldOptions
+}
+
+export interface TableView {
+  id: string
+  table_id: string
+  name: string
+  type: string
+  sort: Record<string, unknown>
+  options: Record<string, unknown>
+  order: number
+  version: number
+  column_meta: Record<string, unknown>
+  enable_share: boolean
+  created_by: string
+  date_creation: string
+}
+
+export interface TableSchema {
+  table: {
+    id: string
+    base_id: string
+    name: string
+    description: string
+    version: number
+    order: number
+    created_by: string
+    permission_type: string
+    date_creation: string
+    fields: {
+      items: TableField[]
+    }
+    views: {
+      items: TableView[]
+    }
+  }
 }
 
 // Query Types
@@ -87,16 +141,34 @@ export type AppDispatch = typeof dummyStore.dispatch;
 
 // Export a type for the hook return value
 export interface DatabaseHookReturn {
-  records: TableRecordItem[];
-  schema: unknown;
-  isLoading: boolean;
-  schemaLoading: boolean;
+  records: TableRecordItem[]
+  schema: TableSchema | null
+  isLoading: boolean
+  schemaLoading: boolean
+  error: string | null
+  nextPageToken: string | null
+  lastUpdated: string | null
+  refresh: (options?: FetchOptions, onError?: (error: Error) => void) => Promise<void>
+  fetchNextPage: (onError?: (error: Error) => void) => Promise<void>
+  addRecord: (record: unknown, onError?: (error: Error) => void) => Promise<void>
+  modifyRecord: (recordId: string, updates: unknown) => Promise<void>
+  removeRecord: (recordId: string) => Promise<void>
+}
+
+// Update the TableState interface to use the correct schema type
+export interface TableState {
+  tables: {
+    byId: Record<string, TableRecord>;
+    byName: Record<string, string>;
+    allIds: string[];
+  };
+  schemas: {
+    byTableId: Record<string, TableSchema>;
+  };
+  records: {
+    byTableId: Record<string, TableRecordData>;
+  };
+  loading: LoadingState;
   error: string | null;
-  nextPageToken: string | null;
-  lastUpdated: string | null;
-  refresh: (options?: FetchOptions, onError?: (error: Error) => void) => Promise<void>;
-  fetchNextPage: (onError?: (error: Error) => void) => Promise<void>;
-  addRecord: (record: unknown, onError?: (error: Error) => void) => Promise<void>;
-  modifyRecord: (recordId: string, updates: unknown) => Promise<void>;
-  removeRecord: (recordId: string) => Promise<void>;
+  initialized: Record<string, boolean>;
 } 

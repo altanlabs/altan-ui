@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import { useSelector } from "react-redux";
 import {
   fetchTableRecords,
@@ -7,105 +7,149 @@ import {
   updateRecord,
   deleteRecord,
   selectTableData,
+  createRecords,
+  deleteRecords,
 } from "../store/tablesSlice";
 import { useAppDispatch } from "./useAppDispatch";
-import {
-  FetchOptions,
-  DatabaseHookReturn,
-  RootState,
-} from "../store/types";
+import { FetchOptions, DatabaseHookReturn, RootState } from "../store/types";
 
 export function useDatabase(table: string): DatabaseHookReturn {
   const dispatch = useAppDispatch();
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
-
-  // Use memoized selector for better performance
-  const tableData = useSelector((state: RootState) => selectTableData(state, table));
-  const isLoadingRecords = useSelector((state: RootState) => state.tables.loading.records === "loading");
-  const isLoadingSchema = useSelector((state: RootState) => state.tables.loading.schemas === "loading");
+  const requestInProgress = useRef<Record<string, boolean>>({});
+  const tableData = useSelector((state: RootState) =>
+    selectTableData(state, table)
+  );
+  const isLoadingRecords = useSelector(
+    (state: RootState) => state.tables.loading.records === "loading"
+  );
+  const isLoadingSchema = useSelector(
+    (state: RootState) => state.tables.loading.schemas === "loading"
+  );
   const error = useSelector((state: RootState) => state.tables.error);
+  const { records, schema, initialized, lastUpdated } = useMemo(
+    () => ({
+      records: tableData?.records || [],
+      schema: tableData?.schema || null,
+      initialized: tableData?.initialized || false,
+      lastUpdated: tableData?.lastUpdated || null,
+    }),
+    [tableData]
+  );
 
-  // Memoize derived data
-  const { records, schema, initialized, lastUpdated } = useMemo(() => ({
-    records: tableData?.records || [],
-    schema: tableData?.schema || null,
-    initialized: tableData?.initialized || false,
-    lastUpdated: tableData?.lastUpdated || null
-  }), [tableData]);
-
-  // Load schema if needed
   useEffect(() => {
-    if (table && !schema && !isLoadingSchema) {
-      dispatch(fetchTableSchema({ tableName: table }));
+    if (!table) return;
+    if (
+      !schema &&
+      !isLoadingSchema &&
+      !requestInProgress.current[`schema_${table}`]
+    ) {
+      requestInProgress.current[`schema_${table}`] = true;
+      dispatch(fetchTableSchema({ tableName: table })).finally(() => {
+        requestInProgress.current[`schema_${table}`] = false;
+      });
     }
-  }, [table, schema, isLoadingSchema, dispatch]);
-
-  // Initial data load
-  useEffect(() => {
-    if (table && !initialized && !isLoadingRecords) {
-      dispatch(fetchTableRecords({ 
-        tableName: table,
-        queryParams: { limit: 20 } 
-      }));
+    if (
+      !initialized &&
+      !isLoadingRecords &&
+      !requestInProgress.current[`records_${table}`]
+    ) {
+      requestInProgress.current[`records_${table}`] = true;
+      dispatch(
+        fetchTableRecords({ tableName: table, queryParams: { limit: 20 } })
+      ).finally(() => {
+        requestInProgress.current[`records_${table}`] = false;
+      });
     }
-  }, [table, initialized, isLoadingRecords, dispatch]);
+  }, [table, schema, initialized, isLoadingRecords, isLoadingSchema, dispatch]);
 
-  const refresh = useCallback(async (
-    options: FetchOptions = { limit: 20 }, 
-    onError?: (error: Error) => void
-  ) => {
-    if (!isLoadingRecords) {
-      try {
-        const result = await dispatch(
-          fetchTableRecords({ tableName: table, queryParams: options })
-        ).unwrap();
-        setNextPageToken(result.nextPageToken);
-      } catch (error) {
-        console.error('Failed to refresh:', error);
-        onError?.(error as Error);
+  const refresh = useCallback(
+    async (
+      options: FetchOptions = { limit: 20 },
+      onError?: (e: Error) => void
+    ) => {
+      if (!isLoadingRecords) {
+        try {
+          const result = await dispatch(
+            fetchTableRecords({ tableName: table, queryParams: options })
+          ).unwrap();
+          setNextPageToken(result.nextPageToken);
+        } catch (e) {
+          onError?.(e as Error);
+        }
       }
-    }
-  }, [table, dispatch, isLoadingRecords]);
+    },
+    [table, dispatch, isLoadingRecords]
+  );
 
-  // Memoize the return object to prevent unnecessary rerenders
-  return useMemo(() => ({
-    records,
-    schema,
-    isLoading: isLoadingRecords,
-    schemaLoading: isLoadingSchema,
-    error,
-    nextPageToken,
-    lastUpdated,
-    refresh,
-    fetchNextPage: async (onError?: (error: Error) => void) => {
-      if (nextPageToken && !isLoadingRecords) {
-        await refresh({ pageToken: nextPageToken, limit: 20 }, onError);
-      }
-    },
-    addRecord: async (record: unknown, onError?: (error: Error) => void) => {
-      try {
-        await dispatch(createRecord({ tableName: table, record })).unwrap();
-      } catch (error) {
-        console.error('Failed to add record:', error);
-        onError?.(error as Error);
-      }
-    },
-    modifyRecord: async (recordId: string, updates: unknown) => {
-      try {
-        await dispatch(updateRecord({ tableName: table, recordId, updates })).unwrap();
-      } catch (error) {
-        console.error('Failed to modify record:', error);
-      }
-    },
-    removeRecord: async (recordId: string) => {
-      try {
-        await dispatch(deleteRecord({ tableName: table, recordId })).unwrap();
-      } catch (error) {
-        console.error('Failed to remove record:', error);
-      }
-    },
-  }), [
-    records, schema, isLoadingRecords, isLoadingSchema, error,
-    nextPageToken, lastUpdated, refresh, table, dispatch
-  ]);
-} 
+  return useMemo(
+    () => ({
+      records,
+      schema,
+      isLoading: isLoadingRecords,
+      schemaLoading: isLoadingSchema,
+      error,
+      nextPageToken,
+      lastUpdated,
+      refresh,
+      fetchNextPage: async (onError?: (e: Error) => void) => {
+        if (nextPageToken && !isLoadingRecords) {
+          await refresh({ pageToken: nextPageToken, limit: 20 }, onError);
+        }
+      },
+      addRecord: async (record: unknown, onError?: (e: Error) => void) => {
+        try {
+          await dispatch(createRecord({ tableName: table, record })).unwrap();
+        } catch (e) {
+          onError?.(e as Error);
+        }
+      },
+      modifyRecord: async (
+        recordId: string,
+        updates: unknown,
+        onError?: (e: Error) => void
+      ) => {
+        try {
+          await dispatch(
+            updateRecord({ tableName: table, recordId, updates })
+          ).unwrap();
+        } catch (e) {
+          onError?.(e as Error);
+        }
+      },
+      removeRecord: async (recordId: string, onError?: (e: Error) => void) => {
+        try {
+          await dispatch(deleteRecord({ tableName: table, recordId })).unwrap();
+        } catch (e) {
+          onError?.(e as Error);
+        }
+      },
+      addRecords: async (records: unknown[], onError?: (e: Error) => void) => {
+        try {
+          await dispatch(createRecords({ tableName: table, records })).unwrap();
+        } catch (e) {
+          onError?.(e as Error);
+        }
+      },
+      removeRecords: async (recordIds: string[], onError?: (e: Error) => void) => {
+        try {
+          await dispatch(deleteRecords({ tableName: table, recordIds })).unwrap();
+        } catch (e) {
+          onError?.(e as Error);
+        }
+      },
+    }),
+    [
+      records,
+      schema,
+      isLoadingRecords,
+      isLoadingSchema,
+      error,
+      nextPageToken,
+      lastUpdated,
+      refresh,
+      table,
+      dispatch,
+    ]
+  );
+}
