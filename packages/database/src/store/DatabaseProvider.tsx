@@ -10,11 +10,14 @@ import { createAltanDB } from "../api/axios";
 interface DatabaseProviderProps {
   config: DatabaseConfig;
   children: ReactNode;
+  enableDevTools?: boolean; // Add option to disable Redux DevTools
+  customMiddleware?: Array<any>; // Allow custom middleware
 }
 
 export const DatabaseProvider = ({
   config,
   children,
+  customMiddleware = [],
 }: DatabaseProviderProps): JSX.Element => {
   // Create the Redux store once using useMemo.
   const store = useMemo(() => {
@@ -28,12 +31,12 @@ export const DatabaseProvider = ({
             // Create the axios instance once using the API_BASE_URL from the provider config.
             extraArgument: { api: createAltanDB(config.API_BASE_URL) },
           },
-        }),
+        }).concat(customMiddleware),
     });
     // Dispatch the initialization with the given config.
     s.dispatch(initializeTables(config));
     return s;
-  }, [config]);
+  }, [config, customMiddleware]);
 
   return <Provider store={store}>{children}</Provider>;
 };

@@ -1,275 +1,392 @@
 # @altanlabs/database
 
-A robust TypeScript-based database integration package for the Altan ecosystem. This package provides flexible and powerful utilities for configuring and managing database connections, interacting with backend APIs via axios, and integrating Redux state management in React applications. The library relies on explicit, prop-based configuration and a single axios instance that's injected into your Redux async thunks.
-
----
+A React library for easy database integration with powerful querying capabilities.
 
 ## Table of Contents
-
 - [Installation](#installation)
-- [Configuration](#configuration)
-- [Usage](#usage)
-  - [DatabaseProvider](#databaseprovider)
-  - [Axios Instance Creation](#axios-instance-creation)
-  - [Redux Tables Slice](#redux-tables-slice)
-  - [Querying Records](#querying-records)
-- [Advanced Topics](#advanced-topics)
-  - [Dashboard Example](#dashboard-example)
-  - [Redux Store Structure](#redux-store-structure)
-  - [Available Tables](#available-tables)
-- [API Endpoints](#api-endpoints)
-- [License](#license)
-
----
+- [Quick Start](#quick-start)
+- [Data Loading Behavior](#data-loading-behavior)
+- [Features](#features)
+  - [Automatic Data Loading](#automatic-data-loading)
+  - [Manual Refresh](#manual-refresh)
+  - [Filtering](#filtering)
+  - [Sorting](#sorting)
+  - [Pagination](#pagination)
+  - [CRUD Operations](#crud-operations)
+  - [Field Selection](#field-selection)
+- [API Reference](#api-reference)
+- [Best Practices](#best-practices)
+- [Examples](#examples)
+- [Troubleshooting](#troubleshooting)
 
 ## Installation
-
-Install the package via npm:
 
 ```bash
 npm install @altanlabs/database
 ```
 
-Or using yarn:
+## Quick Start
 
-```bash
-yarn add @altanlabs/database
-```
+1. **Set up the Provider**
 
----
+```tsx
+// App.tsx
+import { DatabaseProvider } from "@altanlabs/database";
 
-## Configuration
-
-The configuration is now passed directly to the `DatabaseProvider` component. Define your configuration object in your application entry point. For example:
-
-```typescript
-// src/config.ts
-export const databaseConfig = {
+const config = {
   API_BASE_URL: "https://api.example.com",
   SAMPLE_TABLES: {
-    // Pre-configured tables
     users: "1b52a5c4-ce93-4790-aa2a-d186daa2068d",
     posts: "d8812981-b246-4de4-8ef9-40fa8a7dbbda"
   }
 };
-```
 
----
-
-## Usage
-
-### DatabaseProvider
-
-Wrap your application in the `DatabaseProvider` and pass your configuration via the `config` prop. This provider creates a single axios instance and injects it into all async thunk actions.
-
-```tsx
-// src/App.tsx
-import React from "react";
-import { DatabaseProvider } from "@altanlabs/database";
-import { databaseConfig } from "./config";
-import YourApplication from "./YourApplication";
-
-const App = () => (
-  <DatabaseProvider config={databaseConfig}>
-    <YourApplication />
-  </DatabaseProvider>
-);
-
-export default App;
-```
-
-### Axios Instance Creation
-
-The library exports a `createAltanDB` function that creates an axios instance using the provided API base URL. However, you do not need to call this function directly. The `DatabaseProvider` calls it once using the configuration supplied to create the axios instance that is injected via Redux Thunk's extra argument.
-
-### Redux Tables Slice
-
-The package exposes several Redux actions and thunks (such as `fetchTableRecords`, `createRecord`, etc.) to interact with table records. These thunks automatically use the injected axios instance.
-
-#### Example: Fetching Table Records
-
-```typescript
-import { useDispatch } from "react-redux";
-import { fetchTableRecords } from "@altanlabs/database";
-
-const dispatch = useDispatch();
-
-// Fetch records from the "users" table with a limit of 20 records
-dispatch(fetchTableRecords({
-  tableName: "users",
-  queryParams: { limit: 20 }
-}));
-```
-
-#### Example: Creating a Record
-
-```typescript
-import { createRecord } from "@altanlabs/database";
-
-dispatch(createRecord({
-  tableName: "users",
-  record: {
-    username: "john_doe",
-    email: "john@example.com"
-  }
-}));
-```
-
----
-
-### Querying Records
-
-The database supports advanced querying capabilities with filtering, sorting, and pagination. When querying records, you can specify various options using the `queryParams` field. These options include:
-
-- **Filters**  
-  Apply one or more criteria to narrow down the records.  
-  **Operators available:**
-  - `eq` - Equals
-  - `neq` - Not equals (includes NULL values)
-  - `gt` - Greater than
-  - `gte` - Greater than or equal
-  - `lt` - Less than
-  - `lte` - Less than or equal
-  - `contains` - Case-insensitive text search
-  - `startswith` - Case-insensitive prefix search
-  - `endswith` - Case-insensitive suffix search
-
-- **Sorting**  
-  Sort by multiple fields using the `sort` parameter. Each sort item requires a `field` and a `direction` ("asc" or "desc").  
-  If no sorting is provided, the default is sorting by `id` in ascending order.
-
-- **Pagination**  
-  Cursor-based pagination is used to efficiently load large data sets.
-  - Use `limit` to control the number of records per page.  
-  - A `pageToken` (returned as `nextPageToken`) will be provided if more records exist.  
-  - Pass the `pageToken` in subsequent requests to retrieve the next set of records.
-
-- **Fields & Amount**  
-  Specify a subset of fields to retrieve using `fields`.  
-  The `amount` parameter determines how many records to return. It defaults to `"all"` if not provided and can be explicitly set to `"all"`, `"first"`, or `"one"`.
-
-#### Examples
-
-```typescript
-// Basic query
-dispatch(fetchTableRecords({
-  tableName: "users",
-  queryParams: { 
-    limit: 20 
-  }
-}));
-
-// Advanced query with filters and sorting
-dispatch(fetchTableRecords({
-  tableName: "users",
-  queryParams: {
-    filters: [
-      { field: "username", operator: "contains", value: "john" },
-      { field: "signup_date", operator: "gte", value: "2024-01-01" }
-    ],
-    sort: [
-      { field: "created_time", direction: "desc" }
-    ],
-    limit: 20,
-    fields: ["id", "username", "email"],
-    amount: "all" // Defaults to "all" if not specified
-  }
-}));
-
-// Pagination example:
-// First page fetch:
-const firstPage = await dispatch(fetchTableRecords({
-  tableName: "users",
-  queryParams: { limit: 20 }
-}));
-// Fetch the next page:
-if (firstPage.nextPageToken) {
-  dispatch(fetchTableRecords({
-    tableName: "users",
-    queryParams: {
-      limit: 20,
-      pageToken: firstPage.nextPageToken
-    }
-  }));
+function App() {
+  return (
+    <DatabaseProvider config={config}>
+      <YourApp />
+    </DatabaseProvider>
+  );
 }
 ```
 
----
+2. **Use the Database Hook**
 
-## Advanced Topics
+```tsx
+import { useDatabase } from "@altanlabs/database";
 
-### Dashboard Example
+function UsersList() {
+  const { 
+    records,          // Current records
+    schema,          // Table schema
+    isLoading,       // Loading state
+    refresh,         // Manual refresh with options
+    fetchNextPage,   // Load next page
+    addRecord,       // Create new record
+    modifyRecord,    // Update existing record
+    removeRecord     // Delete record
+  } = useDatabase("users");
 
-Integrate the database operations into a larger dashboard application that might feature:
-- Multiple chart components using Recharts
-- Card-based layouts
-- Activity feeds and quick action buttons
+  // Optional: Refresh with specific options
+  useEffect(() => {
+    refresh({ 
+      limit: 20,
+      sort: [{ field: "created_time", direction: "desc" }]
+    });
+  }, [refresh]); // Don't include isLoading in dependencies
 
-### Redux Store Structure
+  if (isLoading) return <div>Loading...</div>;
 
-The integrated Redux store uses the following structure:
-
-```javascript
-const initialState = {
-  tables: {
-    byId: {},
-    byName: {},
-    allIds: [],
-  },
-  schemas: {
-    byTableId: {},
-  },
-  records: {
-    byTableId: {},
-  },
-  loading: {
-    tables: "idle",
-    records: "idle",
-    schemas: "idle",
-  },
-  error: null,
-  initialized: {} // Tracks whether a table's data has been fetched.
-};
+  return (
+    <div>
+      {records.map(record => (
+        <div key={record.id}>{record.fields.name}</div>
+      ))}
+    </div>
+  );
+}
 ```
 
-### Available Tables
+## Data Loading Behavior
 
-Pre-configured tables are defined via the `SAMPLE_TABLES` configuration object:
+The hook manages data in two ways:
 
-```javascript
-const SAMPLE_TABLES = {
-  users: "1b52a5c4-ce93-4790-aa2a-d186daa2068d",
-  posts: "d8812981-b246-4de4-8ef9-40fa8a7dbbda",
-};
+1. **Automatic Initial Load**
+- Happens once when a table is first accessed
+- No manual intervention needed
+- Caches the data in Redux store
+
+2. **Manual Refresh**
+- Used for applying new filters/sorting
+- Forces a fresh fetch regardless of cache
+- Useful for updating stale data
+
+```tsx
+// Example: Table Switching
+function TableViewer() {
+  const [selectedTable, setSelectedTable] = useState("users");
+  const { records, isLoading } = useDatabase(selectedTable);
+
+  // No refresh needed - data loads automatically
+  return (
+    <div>
+      <select onChange={(e) => setSelectedTable(e.target.value)}>
+        <option value="users">Users</option>
+        <option value="posts">Posts</option>
+      </select>
+      
+      {isLoading ? (
+        <div>Loading...</div>
+      ) : (
+        <div>{records.map(record => (
+          <div key={record.id}>{record.fields.name}</div>
+        ))}</div>
+      )}
+    </div>
+  );
+}
 ```
 
----
+## Features
 
-## API Endpoints
+### Automatic Data Loading
+Data is automatically loaded and cached when a table is first accessed:
+```tsx
+const { records, isLoading } = useDatabase("users");
+// Data loads automatically, no manual fetch needed
+```
 
-The database components interact with the following API endpoints:
+### Manual Refresh
+Use `refresh()` to reload data with specific options:
 
-- `GET /table/{table_id}`  
-  Retrieve the table schema.
+```tsx
+const { refresh } = useDatabase("users");
 
-- `POST /table/{table_id}/record/query`  
-  Query table records using filters, sorting, and pagination.
+// Basic refresh
+refresh();
 
-- `POST /table/{table_id}/record`  
-  Create a new record in the specified table.
+// Refresh with options
+refresh({
+  limit: 20,
+  sort: [{ field: "created_time", direction: "desc" }],
+  filters: [{ field: "status", operator: "eq", value: "active" }]
+});
+```
 
-- `PATCH /table/{table_id}/record/{record_id}`  
-  Update an existing record.
+### Filtering
+Apply filters using various operators:
 
-- `DELETE /table/{table_id}/record/{record_id}`  
-  Delete a record from the table.
+```tsx
+refresh({
+  filters: [
+    { field: "status", operator: "eq", value: "active" },
+    { field: "age", operator: "gte", value: 18 },
+    { field: "name", operator: "contains", value: "john" }
+  ]
+});
+```
 
-Ensure your backend API conforms to these endpoints and data structures for seamless integration.
+Available operators:
+- `eq` - Equals
+- `neq` - Not equals
+- `gt` - Greater than
+- `gte` - Greater than or equal
+- `lt` - Less than
+- `lte` - Less than or equal
+- `contains` - Case-insensitive text search
+- `startswith` - Case-insensitive prefix search
+- `endswith` - Case-insensitive suffix search
 
----
+### Sorting
+Sort by multiple fields:
+
+```tsx
+refresh({
+  sort: [
+    { field: "created_time", direction: "desc" },
+    { field: "name", direction: "asc" }
+  ]
+});
+```
+
+### Pagination
+Handle pagination using cursor-based system:
+
+```tsx
+function PaginatedList() {
+  const { records, nextPageToken, fetchNextPage } = useDatabase("users");
+
+  return (
+    <div>
+      {records.map(record => (
+        <div key={record.id}>{record.fields.name}</div>
+      ))}
+      
+      {nextPageToken && (
+        <button onClick={fetchNextPage}>Load More</button>
+      )}
+    </div>
+  );
+}
+```
+
+### CRUD Operations
+Create, update, and delete records:
+
+```tsx
+function UserManager() {
+  const { addRecord, modifyRecord, removeRecord } = useDatabase("users");
+
+  // Create
+  const handleCreate = async () => {
+    await addRecord({
+      name: "John Doe",
+      email: "john@example.com"
+    });
+  };
+
+  // Update
+  const handleUpdate = async (id: string) => {
+    await modifyRecord(id, {
+      status: "inactive"
+    });
+  };
+
+  // Delete
+  const handleDelete = async (id: string) => {
+    await removeRecord(id);
+  };
+
+  return <div>{/* Your UI */}</div>;
+}
+```
+
+### Field Selection
+Select specific fields and control the amount of records:
+
+```tsx
+refresh({
+  fields: ["id", "name", "email"],  // Only fetch these fields
+  amount: "all"                     // "all" | "first" | "one"
+});
+```
+
+## API Reference
+
+### useDatabase Hook
+```typescript
+const {
+  // Data
+  records: Array<{ id: string; fields: Record<string, any> }>,
+  schema: any,
+  
+  // States
+  isLoading: boolean,
+  schemaLoading: boolean,
+  nextPageToken: string | null,
+  
+  // Methods
+  refresh: (options?: FetchOptions) => Promise<void>,
+  fetchNextPage: () => Promise<void>,
+  addRecord: (record: any) => Promise<void>,
+  modifyRecord: (id: string, updates: any) => Promise<void>,
+  removeRecord: (id: string) => Promise<void>
+} = useDatabase(tableName: string);
+```
+
+### FetchOptions Interface
+```typescript
+interface FetchOptions {
+  limit?: number;                   // Records per page
+  filters?: Array<{                 // Filter conditions
+    field: string;
+    operator: string;
+    value: unknown;
+  }>;
+  sort?: Array<{                    // Sort conditions
+    field: string;
+    direction: "asc" | "desc";
+  }>;
+  pageToken?: string;              // For pagination
+  fields?: string[];               // Fields to select
+  amount?: "all" | "first" | "one"; // Amount of records to fetch
+}
+```
+
+## Best Practices
+
+1. **Automatic Loading**
+- Let the hook handle initial data loading
+- Don't manually trigger refresh unless needed
+
+2. **Refresh Usage**
+- Use refresh for applying new filters/sorting
+- Don't include isLoading in useEffect dependencies
+```tsx
+// ✅ Correct
+useEffect(() => {
+  refresh(options);
+}, [refresh]);
+
+// ❌ Incorrect - will cause infinite loops
+useEffect(() => {
+  if (!isLoading) {
+    refresh(options);
+  }
+}, [refresh, isLoading]);
+```
+
+3. **Error Handling**
+```tsx
+try {
+  await addRecord(newRecord);
+} catch (error) {
+  console.error("Failed to add record:", error);
+}
+```
+
+## Examples
+
+### Complete Table Manager
+```tsx
+function TableManager() {
+  const { 
+    records, 
+    isLoading, 
+    refresh,
+    addRecord,
+    modifyRecord,
+    removeRecord 
+  } = useDatabase("users");
+
+  // Apply filters and sorting
+  const handleFilter = () => {
+    refresh({
+      filters: [{ field: "status", operator: "eq", value: "active" }],
+      sort: [{ field: "created_at", direction: "desc" }],
+      limit: 20
+    });
+  };
+
+  // CRUD operations
+  const handleAdd = () => addRecord({ name: "New User" });
+  const handleUpdate = (id: string) => modifyRecord(id, { status: "updated" });
+  const handleDelete = (id: string) => removeRecord(id);
+
+  if (isLoading) return <div>Loading...</div>;
+
+  return (
+    <div>
+      <button onClick={handleFilter}>Filter Active Users</button>
+      <button onClick={handleAdd}>Add User</button>
+      {records.map(record => (
+        <div key={record.id}>
+          {record.fields.name}
+          <button onClick={() => handleUpdate(record.id)}>Update</button>
+          <button onClick={() => handleDelete(record.id)}>Delete</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Infinite Refresh Loops**
+- Cause: Including isLoading in useEffect dependencies
+- Solution: Remove isLoading from dependency array
+
+2. **Missing Initial Data**
+- Cause: Manually managing initial load
+- Solution: Let the hook handle initial loading automatically
+
+3. **Stale Data**
+- Cause: Relying only on automatic loading
+- Solution: Use refresh when data needs updating
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
-
-
+MIT License - see LICENSE for details

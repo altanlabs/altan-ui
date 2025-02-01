@@ -53,158 +53,144 @@ var useAppDispatch_1 = require("./useAppDispatch");
 function useDatabase(table) {
     var _this = this;
     var dispatch = (0, useAppDispatch_1.useAppDispatch)();
-    // Resolve the table ID from table name
-    var tableId = (0, react_redux_1.useSelector)(function (state) { return state.tables.tables.byName[table]; });
-    var records = (0, react_redux_1.useSelector)(function (state) { var _a; return tableId ? ((_a = state.tables.records.byTableId[tableId]) === null || _a === void 0 ? void 0 : _a.items) || [] : []; });
-    var schema = (0, react_redux_1.useSelector)(function (state) {
-        return tableId ? state.tables.schemas.byTableId[tableId] || null : null;
-    });
-    var isLoading = (0, react_redux_1.useSelector)(function (state) { return state.tables.loading.records === "loading"; });
-    var schemaLoading = (0, react_redux_1.useSelector)(function (state) { return state.tables.loading.schemas === "loading"; });
-    var initialized = (0, react_redux_1.useSelector)(function (state) {
-        return tableId ? state.tables.initialized[tableId] : false;
-    });
     var _a = (0, react_1.useState)(null), nextPageToken = _a[0], setNextPageToken = _a[1];
-    // Internal method to fetch data using Redux thunks.
-    var fetchData = (0, react_1.useCallback)(function () {
-        var args_1 = [];
-        for (var _i = 0; _i < arguments.length; _i++) {
-            args_1[_i] = arguments[_i];
-        }
-        return __awaiter(_this, __spreadArray([], args_1, true), void 0, function (options) {
-            var result, error_1;
-            if (options === void 0) { options = { limit: 20 }; }
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        _a.trys.push([0, 3, , 4]);
-                        return [4 /*yield*/, dispatch((0, tablesSlice_1.fetchTableRecords)({ tableName: table, queryParams: options })).unwrap()];
-                    case 1:
-                        result = _a.sent();
-                        return [4 /*yield*/, dispatch((0, tablesSlice_1.fetchTableSchema)({ tableName: table }))];
-                    case 2:
-                        _a.sent();
-                        setNextPageToken(result.nextPageToken);
-                        return [3 /*break*/, 4];
-                    case 3:
-                        error_1 = _a.sent();
-                        console.error("Error fetching data", error_1);
-                        return [3 /*break*/, 4];
-                    case 4: return [2 /*return*/];
-                }
-            });
-        });
-    }, [table, dispatch]);
-    // If the data for this table isn't loaded yet, fetch automatically.
+    // Use memoized selector for better performance
+    var tableData = (0, react_redux_1.useSelector)(function (state) { return (0, tablesSlice_1.selectTableData)(state, table); });
+    var isLoadingRecords = (0, react_redux_1.useSelector)(function (state) { return state.tables.loading.records === "loading"; });
+    var isLoadingSchema = (0, react_redux_1.useSelector)(function (state) { return state.tables.loading.schemas === "loading"; });
+    var error = (0, react_redux_1.useSelector)(function (state) { return state.tables.error; });
+    // Memoize derived data
+    var _b = (0, react_1.useMemo)(function () { return ({
+        records: (tableData === null || tableData === void 0 ? void 0 : tableData.records) || [],
+        schema: (tableData === null || tableData === void 0 ? void 0 : tableData.schema) || null,
+        initialized: (tableData === null || tableData === void 0 ? void 0 : tableData.initialized) || false,
+        lastUpdated: (tableData === null || tableData === void 0 ? void 0 : tableData.lastUpdated) || null
+    }); }, [tableData]), records = _b.records, schema = _b.schema, initialized = _b.initialized, lastUpdated = _b.lastUpdated;
+    // Load schema if needed
     (0, react_1.useEffect)(function () {
-        if (tableId && !initialized) {
-            fetchData();
+        if (table && !schema && !isLoadingSchema) {
+            dispatch((0, tablesSlice_1.fetchTableSchema)({ tableName: table }));
         }
-    }, [tableId, initialized, fetchData]);
-    // Provide a refresh method to re-fetch data manually.
+    }, [table, schema, isLoadingSchema, dispatch]);
+    // Initial data load
+    (0, react_1.useEffect)(function () {
+        if (table && !initialized && !isLoadingRecords) {
+            dispatch((0, tablesSlice_1.fetchTableRecords)({
+                tableName: table,
+                queryParams: { limit: 20 }
+            }));
+        }
+    }, [table, initialized, isLoadingRecords, dispatch]);
     var refresh = (0, react_1.useCallback)(function () {
         var args_1 = [];
         for (var _i = 0; _i < arguments.length; _i++) {
             args_1[_i] = arguments[_i];
         }
-        return __awaiter(_this, __spreadArray([], args_1, true), void 0, function (options) {
-            var error_2;
+        return __awaiter(_this, __spreadArray([], args_1, true), void 0, function (options, onError) {
+            var result, error_1;
             if (options === void 0) { options = { limit: 20 }; }
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
+                        if (!!isLoadingRecords) return [3 /*break*/, 4];
+                        _a.label = 1;
+                    case 1:
+                        _a.trys.push([1, 3, , 4]);
+                        return [4 /*yield*/, dispatch((0, tablesSlice_1.fetchTableRecords)({ tableName: table, queryParams: options })).unwrap()];
+                    case 2:
+                        result = _a.sent();
+                        setNextPageToken(result.nextPageToken);
+                        return [3 /*break*/, 4];
+                    case 3:
+                        error_1 = _a.sent();
+                        console.error('Failed to refresh:', error_1);
+                        onError === null || onError === void 0 ? void 0 : onError(error_1);
+                        return [3 /*break*/, 4];
+                    case 4: return [2 /*return*/];
+                }
+            });
+        });
+    }, [table, dispatch, isLoadingRecords]);
+    // Memoize the return object to prevent unnecessary rerenders
+    return (0, react_1.useMemo)(function () { return ({
+        records: records,
+        schema: schema,
+        isLoading: isLoadingRecords,
+        schemaLoading: isLoadingSchema,
+        error: error,
+        nextPageToken: nextPageToken,
+        lastUpdated: lastUpdated,
+        refresh: refresh,
+        fetchNextPage: function (onError) { return __awaiter(_this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (!(nextPageToken && !isLoadingRecords)) return [3 /*break*/, 2];
+                        return [4 /*yield*/, refresh({ pageToken: nextPageToken, limit: 20 }, onError)];
+                    case 1:
+                        _a.sent();
+                        _a.label = 2;
+                    case 2: return [2 /*return*/];
+                }
+            });
+        }); },
+        addRecord: function (record, onError) { return __awaiter(_this, void 0, void 0, function () {
+            var error_2;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
                         _a.trys.push([0, 2, , 3]);
-                        return [4 /*yield*/, fetchData(options)];
+                        return [4 /*yield*/, dispatch((0, tablesSlice_1.createRecord)({ tableName: table, record: record })).unwrap()];
                     case 1:
                         _a.sent();
                         return [3 /*break*/, 3];
                     case 2:
                         error_2 = _a.sent();
-                        console.error("Error refreshing data", error_2);
+                        console.error('Failed to add record:', error_2);
+                        onError === null || onError === void 0 ? void 0 : onError(error_2);
                         return [3 /*break*/, 3];
                     case 3: return [2 /*return*/];
                 }
             });
-        });
-    }, [fetchData]);
-    var fetchNextPage = (0, react_1.useCallback)(function () { return __awaiter(_this, void 0, void 0, function () {
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    if (!nextPageToken) return [3 /*break*/, 2];
-                    return [4 /*yield*/, fetchData({ pageToken: nextPageToken, limit: 20 })];
-                case 1:
-                    _a.sent();
-                    _a.label = 2;
-                case 2: return [2 /*return*/];
-            }
-        });
-    }); }, [nextPageToken, fetchData]);
-    // CRUD methods to operate on records.
-    var addRecord = (0, react_1.useCallback)(function (record) { return __awaiter(_this, void 0, void 0, function () {
-        var error_3;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    _a.trys.push([0, 2, , 3]);
-                    return [4 /*yield*/, dispatch((0, tablesSlice_1.createRecord)({ tableName: table, record: record }))];
-                case 1:
-                    _a.sent();
-                    return [3 /*break*/, 3];
-                case 2:
-                    error_3 = _a.sent();
-                    console.error("Error creating record", error_3);
-                    return [3 /*break*/, 3];
-                case 3: return [2 /*return*/];
-            }
-        });
-    }); }, [table, dispatch]);
-    var modifyRecord = (0, react_1.useCallback)(function (recordId, updates) { return __awaiter(_this, void 0, void 0, function () {
-        var error_4;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    _a.trys.push([0, 2, , 3]);
-                    return [4 /*yield*/, dispatch((0, tablesSlice_1.updateRecord)({ tableName: table, recordId: recordId, updates: updates }))];
-                case 1:
-                    _a.sent();
-                    return [3 /*break*/, 3];
-                case 2:
-                    error_4 = _a.sent();
-                    console.error("Error updating record", error_4);
-                    return [3 /*break*/, 3];
-                case 3: return [2 /*return*/];
-            }
-        });
-    }); }, [table, dispatch]);
-    var removeRecord = (0, react_1.useCallback)(function (recordId) { return __awaiter(_this, void 0, void 0, function () {
-        var error_5;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    _a.trys.push([0, 2, , 3]);
-                    return [4 /*yield*/, dispatch((0, tablesSlice_1.deleteRecord)({ tableName: table, recordId: recordId }))];
-                case 1:
-                    _a.sent();
-                    return [3 /*break*/, 3];
-                case 2:
-                    error_5 = _a.sent();
-                    console.error("Error deleting record", error_5);
-                    return [3 /*break*/, 3];
-                case 3: return [2 /*return*/];
-            }
-        });
-    }); }, [table, dispatch]);
-    return {
-        records: records,
-        schema: schema,
-        isLoading: isLoading,
-        schemaLoading: schemaLoading,
-        nextPageToken: nextPageToken,
-        refresh: refresh, // simple refresh method
-        fetchNextPage: fetchNextPage, // for pagination
-        addRecord: addRecord,
-        modifyRecord: modifyRecord,
-        removeRecord: removeRecord,
-    };
+        }); },
+        modifyRecord: function (recordId, updates) { return __awaiter(_this, void 0, void 0, function () {
+            var error_3;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        _a.trys.push([0, 2, , 3]);
+                        return [4 /*yield*/, dispatch((0, tablesSlice_1.updateRecord)({ tableName: table, recordId: recordId, updates: updates })).unwrap()];
+                    case 1:
+                        _a.sent();
+                        return [3 /*break*/, 3];
+                    case 2:
+                        error_3 = _a.sent();
+                        console.error('Failed to modify record:', error_3);
+                        return [3 /*break*/, 3];
+                    case 3: return [2 /*return*/];
+                }
+            });
+        }); },
+        removeRecord: function (recordId) { return __awaiter(_this, void 0, void 0, function () {
+            var error_4;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        _a.trys.push([0, 2, , 3]);
+                        return [4 /*yield*/, dispatch((0, tablesSlice_1.deleteRecord)({ tableName: table, recordId: recordId })).unwrap()];
+                    case 1:
+                        _a.sent();
+                        return [3 /*break*/, 3];
+                    case 2:
+                        error_4 = _a.sent();
+                        console.error('Failed to remove record:', error_4);
+                        return [3 /*break*/, 3];
+                    case 3: return [2 /*return*/];
+                }
+            });
+        }); },
+    }); }, [
+        records, schema, isLoadingRecords, isLoadingSchema, error,
+        nextPageToken, lastUpdated, refresh, table, dispatch
+    ]);
 }

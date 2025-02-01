@@ -1,48 +1,6 @@
 import type { AxiosInstance } from "axios";
-import type { RootState } from "./types";
+import { TableState, TableRecordItem, QueryParams, RootState } from "./types";
 import type { DatabaseConfig } from "../config";
-export interface TableRecord {
-    id: string;
-    name: string;
-}
-export interface TableRecordItem {
-    id: string;
-    fields: Record<string, unknown>;
-}
-export interface TableRecordData {
-    items: TableRecordItem[];
-    total: number;
-    lastUpdated: string;
-}
-export interface LoadingState {
-    tables: "idle" | "loading";
-    records: "idle" | "loading";
-    schemas: "idle" | "loading";
-}
-export interface TableState {
-    tables: {
-        byId: Record<string, TableRecord>;
-        byName: Record<string, string>;
-        allIds: string[];
-    };
-    schemas: {
-        byTableId: Record<string, unknown>;
-    };
-    records: {
-        byTableId: Record<string, TableRecordData>;
-    };
-    loading: LoadingState;
-    error: string | null;
-    initialized: Record<string, boolean>;
-}
-export interface QueryParams {
-    filters?: unknown[];
-    sort?: unknown[];
-    limit?: number;
-    pageToken?: string;
-    fields?: string[];
-    amount?: string;
-}
 export declare const fetchTableRecords: import("@reduxjs/toolkit").AsyncThunk<{
     tableId: string;
     records: TableRecordItem[];
@@ -56,8 +14,8 @@ export declare const fetchTableRecords: import("@reduxjs/toolkit").AsyncThunk<{
     extra: {
         api: AxiosInstance;
     };
+    rejectValue: string;
     dispatch?: import("redux-thunk").ThunkDispatch<unknown, unknown, import("redux").UnknownAction> | undefined;
-    rejectValue?: unknown;
     serializedErrorType?: unknown;
     pendingMeta?: unknown;
     fulfilledMeta?: unknown;
@@ -71,9 +29,11 @@ export declare const createRecord: import("@reduxjs/toolkit").AsyncThunk<{
     record: unknown;
 }, {
     state: RootState;
+    extra: {
+        api: AxiosInstance;
+    };
+    rejectValue: string;
     dispatch?: import("redux-thunk").ThunkDispatch<unknown, unknown, import("redux").UnknownAction> | undefined;
-    extra?: unknown;
-    rejectValue?: unknown;
     serializedErrorType?: unknown;
     pendingMeta?: unknown;
     fulfilledMeta?: unknown;
@@ -129,7 +89,15 @@ export declare const fetchTableSchema: import("@reduxjs/toolkit").AsyncThunk<{
     fulfilledMeta?: unknown;
     rejectedMeta?: unknown;
 }>;
-export declare const initializeTables: import("@reduxjs/toolkit").ActionCreatorWithPayload<DatabaseConfig, "tables/initializeTables">;
+export declare const selectTableData: (state: RootState, tableName: string) => {
+    records: TableRecordItem[];
+    total: number;
+    schema: unknown;
+    initialized: boolean;
+    nextPageToken: string | undefined;
+    lastUpdated: string;
+} | null;
+export declare const initializeTables: import("@reduxjs/toolkit").ActionCreatorWithPayload<DatabaseConfig, "tables/initializeTables">, clearTableData: import("@reduxjs/toolkit").ActionCreatorWithPayload<string, "tables/clearTableData">;
 export declare const selectTablesState: (state: RootState) => TableState;
 export declare const selectTableId: (state: RootState, tableName: string) => string;
 export declare const selectTableRecords: (state: RootState, tableName: string) => TableRecordItem[];

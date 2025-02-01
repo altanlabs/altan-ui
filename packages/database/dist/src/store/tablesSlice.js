@@ -35,80 +35,104 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.selectSchemaLoading = exports.selectTableSchema = exports.selectIsLoading = exports.selectTableTotal = exports.selectTableRecords = exports.selectTableId = exports.selectTablesState = exports.initializeTables = exports.fetchTableSchema = exports.deleteRecord = exports.updateRecord = exports.createRecord = exports.fetchTableRecords = void 0;
-// src/databases/tablesSlice.ts
+exports.selectSchemaLoading = exports.selectTableSchema = exports.selectIsLoading = exports.selectTableTotal = exports.selectTableRecords = exports.selectTableId = exports.selectTablesState = exports.clearTableData = exports.initializeTables = exports.selectTableData = exports.fetchTableSchema = exports.deleteRecord = exports.updateRecord = exports.createRecord = exports.fetchTableRecords = void 0;
 var toolkit_1 = require("@reduxjs/toolkit");
 var initialState = {
-    tables: {
-        byId: {},
-        byName: {},
-        allIds: []
-    },
-    schemas: {
-        byTableId: {}
-    },
-    records: {
-        byTableId: {}
-    },
-    loading: {
-        tables: "idle",
-        records: "idle",
-        schemas: "idle"
-    },
+    tables: { byId: {}, byName: {}, allIds: [] },
+    schemas: { byTableId: {} },
+    records: { byTableId: {} },
+    loading: { tables: "idle", records: "idle", schemas: "idle" },
     error: null,
     initialized: {}
 };
+var getTableId = function (state, tableName) {
+    var tableId = state.tables.tables.byName[tableName];
+    if (!tableId)
+        throw new Error("Table ".concat(tableName, " not found"));
+    return tableId;
+};
 exports.fetchTableRecords = (0, toolkit_1.createAsyncThunk)("tables/fetchRecords", function (_a, thunkAPI_1) { return __awaiter(void 0, [_a, thunkAPI_1], void 0, function (_b, thunkAPI) {
-    var state, tableId, api, response;
+    var maxRetries, lastError, _loop_1, attempt, state_1;
     var tableName = _b.tableName, _c = _b.queryParams, queryParams = _c === void 0 ? {} : _c;
     return __generator(this, function (_d) {
         switch (_d.label) {
             case 0:
-                state = thunkAPI.getState();
-                tableId = state.tables.tables.byName[tableName];
-                if (!tableId)
-                    throw new Error("Table ".concat(tableName, " not found"));
-                api = thunkAPI.extra.api;
-                return [4 /*yield*/, api.post("/table/".concat(tableId, "/record/query"), {
-                        filters: queryParams.filters || [],
-                        sort: queryParams.sort || [],
-                        limit: queryParams.limit || 100,
-                        page_token: queryParams.pageToken,
-                        fields: queryParams.fields,
-                        amount: queryParams.amount || "all"
-                    })];
+                maxRetries = 3;
+                _loop_1 = function (attempt) {
+                    var tableId, api, response, error_1;
+                    return __generator(this, function (_e) {
+                        switch (_e.label) {
+                            case 0:
+                                _e.trys.push([0, 2, , 5]);
+                                tableId = getTableId(thunkAPI.getState(), tableName);
+                                api = thunkAPI.extra.api;
+                                return [4 /*yield*/, api.post("/table/".concat(tableId, "/record/query"), {
+                                        filters: queryParams.filters || [],
+                                        sort: queryParams.sort || [],
+                                        limit: queryParams.limit || 100,
+                                        page_token: queryParams.pageToken,
+                                        fields: queryParams.fields,
+                                        amount: queryParams.amount || "all"
+                                    })];
+                            case 1:
+                                response = _e.sent();
+                                return [2 /*return*/, { value: {
+                                            tableId: tableId,
+                                            records: response.data.records,
+                                            total: response.data.total,
+                                            nextPageToken: response.data.next_page_token
+                                        } }];
+                            case 2:
+                                error_1 = _e.sent();
+                                lastError = error_1;
+                                if (!(attempt < maxRetries - 1)) return [3 /*break*/, 4];
+                                return [4 /*yield*/, new Promise(function (resolve) { return setTimeout(resolve, 1000 * Math.pow(2, attempt)); })];
+                            case 3:
+                                _e.sent();
+                                return [2 /*return*/, "continue"];
+                            case 4: return [3 /*break*/, 5];
+                            case 5: return [2 /*return*/];
+                        }
+                    });
+                };
+                attempt = 0;
+                _d.label = 1;
             case 1:
-                response = _d.sent();
-                return [2 /*return*/, {
-                        tableId: tableId,
-                        records: response.data.records,
-                        total: response.data.total,
-                        nextPageToken: response.data.next_page_token
-                    }];
+                if (!(attempt < maxRetries)) return [3 /*break*/, 4];
+                return [5 /*yield**/, _loop_1(attempt)];
+            case 2:
+                state_1 = _d.sent();
+                if (typeof state_1 === "object")
+                    return [2 /*return*/, state_1.value];
+                _d.label = 3;
+            case 3:
+                attempt++;
+                return [3 /*break*/, 1];
+            case 4: return [2 /*return*/, thunkAPI.rejectWithValue(lastError instanceof Error ? lastError.message : 'Failed to fetch records')];
         }
     });
 }); });
 exports.createRecord = (0, toolkit_1.createAsyncThunk)("tables/createRecord", function (_a, thunkAPI_1) { return __awaiter(void 0, [_a, thunkAPI_1], void 0, function (_b, thunkAPI) {
-    var state, tableId, api, response;
+    var tableId, api, response, error_2;
     var tableName = _b.tableName, record = _b.record;
     return __generator(this, function (_c) {
         switch (_c.label) {
             case 0:
-                state = thunkAPI.getState();
-                tableId = state.tables.tables.byName[tableName];
-                if (!tableId)
-                    throw new Error("Table ".concat(tableName, " not found"));
+                _c.trys.push([0, 2, , 3]);
+                tableId = getTableId(thunkAPI.getState(), tableName);
                 api = thunkAPI.extra.api;
                 return [4 /*yield*/, api.post("/table/".concat(tableId, "/record"), {
                         records: [{ fields: record }]
                     })];
             case 1:
                 response = _c.sent();
-                return [2 /*return*/, {
-                        tableId: tableId,
-                        record: response.data.records[0]
-                    }];
+                return [2 /*return*/, { tableId: tableId, record: response.data.records[0] }];
+            case 2:
+                error_2 = _c.sent();
+                return [2 /*return*/, thunkAPI.rejectWithValue(error_2 instanceof Error ? error_2.message : 'Failed to create record')];
+            case 3: return [2 /*return*/];
         }
     });
 }); });
@@ -128,10 +152,7 @@ exports.updateRecord = (0, toolkit_1.createAsyncThunk)("tables/updateRecord", fu
                     })];
             case 1:
                 response = _c.sent();
-                return [2 /*return*/, {
-                        tableId: tableId,
-                        record: response.data.record
-                    }];
+                return [2 /*return*/, { tableId: tableId, record: response.data.record }];
         }
     });
 }); });
@@ -181,31 +202,40 @@ var tablesSlice = (0, toolkit_1.createSlice)({
                 var name = _a[0], id = _a[1];
                 state.tables.byId[id] = { id: id, name: name };
                 state.tables.byName[name] = id;
-                if (!state.tables.allIds.includes(id)) {
+                if (!state.tables.allIds.includes(id))
                     state.tables.allIds.push(id);
-                }
                 state.initialized[id] = false;
             });
+        },
+        clearTableData: function (state, action) {
+            var tableId = state.tables.byName[action.payload];
+            if (tableId) {
+                delete state.records.byTableId[tableId];
+                state.initialized[tableId] = false;
+            }
         }
     },
     extraReducers: function (builder) {
         builder
             .addCase(exports.fetchTableRecords.pending, function (state) {
             state.loading.records = "loading";
+            state.error = null;
         })
             .addCase(exports.fetchTableRecords.fulfilled, function (state, action) {
-            var _a = action.payload, tableId = _a.tableId, records = _a.records, total = _a.total;
+            var _a = action.payload, tableId = _a.tableId, records = _a.records, total = _a.total, nextPageToken = _a.nextPageToken;
             state.records.byTableId[tableId] = {
                 items: records,
                 total: total,
-                lastUpdated: new Date().toISOString()
+                lastUpdated: new Date().toISOString(),
+                nextPageToken: nextPageToken
             };
             state.loading.records = "idle";
             state.initialized[tableId] = true;
+            state.error = null;
         })
             .addCase(exports.fetchTableRecords.rejected, function (state, action) {
-            state.loading.records = "idle";
-            state.error = action.error.message || null;
+            state.loading.records = "error";
+            state.error = action.payload || 'An unknown error occurred';
         })
             .addCase(exports.createRecord.fulfilled, function (state, action) {
             var _a;
@@ -217,19 +247,19 @@ var tablesSlice = (0, toolkit_1.createSlice)({
             .addCase(exports.updateRecord.fulfilled, function (state, action) {
             var _a;
             var _b = action.payload, tableId = _b.tableId, record = _b.record;
-            if ((_a = state.records.byTableId[tableId]) === null || _a === void 0 ? void 0 : _a.items) {
-                var index = state.records.byTableId[tableId].items.findIndex(function (r) { return r.id === record.id; });
-                if (index !== -1) {
-                    state.records.byTableId[tableId].items[index] = record;
-                }
+            var items = (_a = state.records.byTableId[tableId]) === null || _a === void 0 ? void 0 : _a.items;
+            if (items) {
+                var index = items.findIndex(function (r) { return r.id === record.id; });
+                if (index !== -1)
+                    items[index] = record;
             }
         })
             .addCase(exports.deleteRecord.fulfilled, function (state, action) {
             var _a;
             var _b = action.payload, tableId = _b.tableId, recordId = _b.recordId;
-            if ((_a = state.records.byTableId[tableId]) === null || _a === void 0 ? void 0 : _a.items) {
-                state.records.byTableId[tableId].items =
-                    state.records.byTableId[tableId].items.filter(function (record) { return record.id !== recordId; });
+            var items = (_a = state.records.byTableId[tableId]) === null || _a === void 0 ? void 0 : _a.items;
+            if (items) {
+                state.records.byTableId[tableId].items = items.filter(function (r) { return r.id !== recordId; });
             }
         })
             .addCase(exports.fetchTableSchema.pending, function (state) {
@@ -246,12 +276,25 @@ var tablesSlice = (0, toolkit_1.createSlice)({
         });
     }
 });
-exports.initializeTables = tablesSlice.actions.initializeTables;
+var selectTableData = function (state, tableName) {
+    var tableId = state.tables.tables.byName[tableName];
+    if (!tableId)
+        return null;
+    var recordData = state.tables.records.byTableId[tableId];
+    return {
+        records: (recordData === null || recordData === void 0 ? void 0 : recordData.items) || [],
+        total: (recordData === null || recordData === void 0 ? void 0 : recordData.total) || 0,
+        schema: state.tables.schemas.byTableId[tableId],
+        initialized: state.tables.initialized[tableId],
+        nextPageToken: recordData === null || recordData === void 0 ? void 0 : recordData.nextPageToken,
+        lastUpdated: recordData === null || recordData === void 0 ? void 0 : recordData.lastUpdated
+    };
+};
+exports.selectTableData = selectTableData;
+exports.initializeTables = (_a = tablesSlice.actions, _a.initializeTables), exports.clearTableData = _a.clearTableData;
 var selectTablesState = function (state) { return state.tables; };
 exports.selectTablesState = selectTablesState;
-var selectTableId = function (state, tableName) {
-    return state.tables.tables.byName[tableName];
-};
+var selectTableId = function (state, tableName) { return state.tables.tables.byName[tableName]; };
 exports.selectTableId = selectTableId;
 var selectTableRecords = function (state, tableName) {
     var _a;
@@ -265,17 +308,13 @@ var selectTableTotal = function (state, tableName) {
     return tableId ? ((_a = state.tables.records.byTableId[tableId]) === null || _a === void 0 ? void 0 : _a.total) || 0 : 0;
 };
 exports.selectTableTotal = selectTableTotal;
-var selectIsLoading = function (state) {
-    return state.tables.loading.records === "loading";
-};
+var selectIsLoading = function (state) { return state.tables.loading.records === "loading"; };
 exports.selectIsLoading = selectIsLoading;
 var selectTableSchema = function (state, tableName) {
     var tableId = state.tables.tables.byName[tableName];
     return tableId ? state.tables.schemas.byTableId[tableId] : null;
 };
 exports.selectTableSchema = selectTableSchema;
-var selectSchemaLoading = function (state) {
-    return state.tables.loading.schemas === "loading";
-};
+var selectSchemaLoading = function (state) { return state.tables.loading.schemas === "loading"; };
 exports.selectSchemaLoading = selectSchemaLoading;
 exports.default = tablesSlice.reducer;

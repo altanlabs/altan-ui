@@ -13,7 +13,7 @@ var tablesSlice_1 = __importDefault(require("./tablesSlice"));
 var tablesSlice_2 = require("./tablesSlice");
 var axios_1 = require("../api/axios");
 var DatabaseProvider = function (_a) {
-    var config = _a.config, children = _a.children;
+    var config = _a.config, children = _a.children, _b = _a.customMiddleware, customMiddleware = _b === void 0 ? [] : _b;
     // Create the Redux store once using useMemo.
     var store = (0, react_1.useMemo)(function () {
         var s = (0, toolkit_1.configureStore)({
@@ -26,13 +26,13 @@ var DatabaseProvider = function (_a) {
                         // Create the axios instance once using the API_BASE_URL from the provider config.
                         extraArgument: { api: (0, axios_1.createAltanDB)(config.API_BASE_URL) },
                     },
-                });
+                }).concat(customMiddleware);
             },
         });
         // Dispatch the initialization with the given config.
         s.dispatch((0, tablesSlice_2.initializeTables)(config));
         return s;
-    }, [config]);
+    }, [config, customMiddleware]);
     return (0, jsx_runtime_1.jsx)(react_redux_1.Provider, { store: store, children: children });
 };
 exports.DatabaseProvider = DatabaseProvider;
