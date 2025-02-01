@@ -19,7 +19,7 @@ Altan UI is a comprehensive framework for AI agents to seamlessly integrate back
 1. **Install Altan UI**
 
    ```bash
-   npm install altan-ui
+   npm install altan
    ```
 
 2. **Configure the Database Module**
@@ -27,7 +27,7 @@ Altan UI is a comprehensive framework for AI agents to seamlessly integrate back
    Before using the database functionality, set your API endpoint and table identifiers:
 
    ```ts
-   import { setDatabaseConfig } from "altan-ui";
+   import { setDatabaseConfig } from "altan";
 
    setDatabaseConfig({
      API_BASE_URL: "https://api.altan.ai/galaxia/hook/2o6RF5",
@@ -44,7 +44,7 @@ Altan UI is a comprehensive framework for AI agents to seamlessly integrate back
 
    ```tsx
    import React from "react";
-   import { DatabaseProvider } from "altan-ui";
+   import { DatabaseProvider } from "altan";
 
    const App = () => (
      <DatabaseProvider>
@@ -60,7 +60,7 @@ Altan UI is a comprehensive framework for AI agents to seamlessly integrate back
    Import and use UI components and blocks from Altan UI as needed:
 
    ```tsx
-   import { SomeComponent, SomeBlock } from "altan-ui";
+   import { SomeComponent, SomeBlock } from "altan";
 
    // Use SomeComponent and SomeBlock in your UI
    ```
