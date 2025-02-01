@@ -137,7 +137,7 @@ export const fetchTableSchema = createAsyncThunk<
     if (!tableId) throw new Error(`Table ${tableName} not found`);
     const { api } = thunkAPI.extra;
     const response = await api.get(`/table/${tableId}`);
-    return { tableId, schema: response.data as TableSchema };
+    return { tableId, schema: response.data.table as TableSchema };
   }
 );
 

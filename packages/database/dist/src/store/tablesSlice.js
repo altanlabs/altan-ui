@@ -37,7 +37,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.selectSchemaLoading = exports.selectTableSchema = exports.selectIsLoading = exports.selectTableTotal = exports.selectTableRecords = exports.selectTableId = exports.selectTablesState = exports.clearTableData = exports.initializeTables = exports.selectTableData = exports.fetchTableSchema = exports.deleteRecord = exports.updateRecord = exports.createRecord = exports.fetchTableRecords = void 0;
+exports.selectSchemaLoading = exports.selectTableSchema = exports.selectIsLoading = exports.selectTableTotal = exports.selectTableRecords = exports.selectTableId = exports.selectTablesState = exports.clearTableData = exports.initializeTables = exports.selectTableData = exports.deleteRecords = exports.createRecords = exports.fetchTableSchema = exports.deleteRecord = exports.updateRecord = exports.createRecord = exports.fetchTableRecords = void 0;
 var toolkit_1 = require("@reduxjs/toolkit");
 var initialState = {
     tables: { byId: {}, byName: {}, allIds: [] },
@@ -192,6 +192,48 @@ exports.fetchTableSchema = (0, toolkit_1.createAsyncThunk)("tables/fetchSchema",
         }
     });
 }); });
+exports.createRecords = (0, toolkit_1.createAsyncThunk)("tables/createRecords", function (_a, thunkAPI_1) { return __awaiter(void 0, [_a, thunkAPI_1], void 0, function (_b, thunkAPI) {
+    var tableId, api, response, error_3;
+    var tableName = _b.tableName, records = _b.records;
+    return __generator(this, function (_c) {
+        switch (_c.label) {
+            case 0:
+                _c.trys.push([0, 2, , 3]);
+                tableId = getTableId(thunkAPI.getState(), tableName);
+                api = thunkAPI.extra.api;
+                return [4 /*yield*/, api.post("/table/".concat(tableId, "/record"), {
+                        records: records.map(function (record) { return ({ fields: record }); })
+                    })];
+            case 1:
+                response = _c.sent();
+                return [2 /*return*/, { tableId: tableId, records: response.data.records }];
+            case 2:
+                error_3 = _c.sent();
+                return [2 /*return*/, thunkAPI.rejectWithValue(error_3 instanceof Error ? error_3.message : 'Failed to create records')];
+            case 3: return [2 /*return*/];
+        }
+    });
+}); });
+exports.deleteRecords = (0, toolkit_1.createAsyncThunk)("tables/deleteRecords", function (_a, thunkAPI_1) { return __awaiter(void 0, [_a, thunkAPI_1], void 0, function (_b, thunkAPI) {
+    var state, tableId, api;
+    var tableName = _b.tableName, recordIds = _b.recordIds;
+    return __generator(this, function (_c) {
+        switch (_c.label) {
+            case 0:
+                state = thunkAPI.getState();
+                tableId = state.tables.tables.byName[tableName];
+                if (!tableId)
+                    throw new Error("Table ".concat(tableName, " not found"));
+                api = thunkAPI.extra.api;
+                return [4 /*yield*/, api.delete("/table/".concat(tableId, "/record"), {
+                        data: { records: recordIds }
+                    })];
+            case 1:
+                _c.sent();
+                return [2 /*return*/, { tableId: tableId, recordIds: recordIds }];
+        }
+    });
+}); });
 var tablesSlice = (0, toolkit_1.createSlice)({
     name: "tables",
     initialState: initialState,
@@ -273,6 +315,22 @@ var tablesSlice = (0, toolkit_1.createSlice)({
             .addCase(exports.fetchTableSchema.rejected, function (state, action) {
             state.loading.schemas = "idle";
             state.error = action.error.message || null;
+        })
+            .addCase(exports.createRecords.fulfilled, function (state, action) {
+            var _a;
+            var _b;
+            var _c = action.payload, tableId = _c.tableId, records = _c.records;
+            if ((_b = state.records.byTableId[tableId]) === null || _b === void 0 ? void 0 : _b.items) {
+                (_a = state.records.byTableId[tableId].items).push.apply(_a, records);
+            }
+        })
+            .addCase(exports.deleteRecords.fulfilled, function (state, action) {
+            var _a;
+            var _b = action.payload, tableId = _b.tableId, recordIds = _b.recordIds;
+            var items = (_a = state.records.byTableId[tableId]) === null || _a === void 0 ? void 0 : _a.items;
+            if (items) {
+                state.records.byTableId[tableId].items = items.filter(function (r) { return !recordIds.includes(r.id); });
+            }
         });
     }
 });

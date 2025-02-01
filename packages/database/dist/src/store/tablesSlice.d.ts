@@ -1,5 +1,5 @@
 import type { AxiosInstance } from "axios";
-import { TableState, TableRecordItem, QueryParams, RootState } from "./types";
+import { TableState, TableRecordItem, QueryParams, RootState, TableSchema } from "./types";
 import type { DatabaseConfig } from "../config";
 export declare const fetchTableRecords: import("@reduxjs/toolkit").AsyncThunk<{
     tableId: string;
@@ -74,7 +74,7 @@ export declare const deleteRecord: import("@reduxjs/toolkit").AsyncThunk<{
 }>;
 export declare const fetchTableSchema: import("@reduxjs/toolkit").AsyncThunk<{
     tableId: string;
-    schema: unknown;
+    schema: TableSchema;
 }, {
     tableName: string;
 }, {
@@ -89,10 +89,44 @@ export declare const fetchTableSchema: import("@reduxjs/toolkit").AsyncThunk<{
     fulfilledMeta?: unknown;
     rejectedMeta?: unknown;
 }>;
+export declare const createRecords: import("@reduxjs/toolkit").AsyncThunk<{
+    tableId: string;
+    records: TableRecordItem[];
+}, {
+    tableName: string;
+    records: unknown[];
+}, {
+    state: RootState;
+    extra: {
+        api: AxiosInstance;
+    };
+    rejectValue: string;
+    dispatch?: import("redux-thunk").ThunkDispatch<unknown, unknown, import("redux").UnknownAction> | undefined;
+    serializedErrorType?: unknown;
+    pendingMeta?: unknown;
+    fulfilledMeta?: unknown;
+    rejectedMeta?: unknown;
+}>;
+export declare const deleteRecords: import("@reduxjs/toolkit").AsyncThunk<{
+    tableId: string;
+    recordIds: string[];
+}, {
+    tableName: string;
+    recordIds: string[];
+}, {
+    state: RootState;
+    dispatch?: import("redux-thunk").ThunkDispatch<unknown, unknown, import("redux").UnknownAction> | undefined;
+    extra?: unknown;
+    rejectValue?: unknown;
+    serializedErrorType?: unknown;
+    pendingMeta?: unknown;
+    fulfilledMeta?: unknown;
+    rejectedMeta?: unknown;
+}>;
 export declare const selectTableData: (state: RootState, tableName: string) => {
     records: TableRecordItem[];
     total: number;
-    schema: unknown;
+    schema: TableSchema;
     initialized: boolean;
     nextPageToken: string | undefined;
     lastUpdated: string;
@@ -103,7 +137,7 @@ export declare const selectTableId: (state: RootState, tableName: string) => str
 export declare const selectTableRecords: (state: RootState, tableName: string) => TableRecordItem[];
 export declare const selectTableTotal: (state: RootState, tableName: string) => number;
 export declare const selectIsLoading: (state: RootState) => boolean;
-export declare const selectTableSchema: (state: RootState, tableName: string) => unknown;
+export declare const selectTableSchema: (state: RootState, tableName: string) => TableSchema | null;
 export declare const selectSchemaLoading: (state: RootState) => boolean;
 declare const _default: import("redux").Reducer<TableState>;
 export default _default;

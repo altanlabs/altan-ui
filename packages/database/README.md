@@ -1,11 +1,12 @@
 # @altanlabs/database
 
-A React library for easy database integration with powerful querying capabilities.
+@altanlabs/database is a lightweight React library for seamless database integration. It offers powerful querying capabilities including filtering, sorting, pagination, and CRUD operations—all powered by a simple React hook interface and Redux under the hood.
 
 ## Table of Contents
 - [Installation](#installation)
 - [Quick Start](#quick-start)
-- [Data Loading Behavior](#data-loading-behavior)
+  - [Setting Up the Provider](#setting-up-the-provider)
+  - [Using the Database Hook](#using-the-database-hook)
 - [Features](#features)
   - [Automatic Data Loading](#automatic-data-loading)
   - [Manual Refresh](#manual-refresh)
@@ -18,8 +19,11 @@ A React library for easy database integration with powerful querying capabilitie
 - [Best Practices](#best-practices)
 - [Examples](#examples)
 - [Troubleshooting](#troubleshooting)
+- [License](#license)
 
 ## Installation
+
+Install via npm:
 
 ```bash
 npm install @altanlabs/database
@@ -27,7 +31,9 @@ npm install @altanlabs/database
 
 ## Quick Start
 
-1. **Set up the Provider**
+### Setting Up the Provider
+
+Wrap your application with the `DatabaseProvider`, passing the configuration including the API base URL and your sample table mappings.
 
 ```tsx
 // App.tsx
@@ -48,32 +54,34 @@ function App() {
     </DatabaseProvider>
   );
 }
+
+export default App;
 ```
 
-2. **Use the Database Hook**
+### Using the Database Hook
+
+Access your table data easily with the `useDatabase` hook. Below is an example of a simple users list:
 
 ```tsx
+// UsersList.tsx
 import { useDatabase } from "@altanlabs/database";
+import { useEffect } from "react";
 
 function UsersList() {
   const { 
-    records,          // Current records
-    schema,          // Table schema
-    isLoading,       // Loading state
-    refresh,         // Manual refresh with options
-    fetchNextPage,   // Load next page
-    addRecord,       // Create new record
-    modifyRecord,    // Update existing record
-    removeRecord     // Delete record
+    records, 
+    schema, 
+    isLoading, 
+    refresh 
   } = useDatabase("users");
 
-  // Optional: Refresh with specific options
   useEffect(() => {
+    // Fetch initial data with sort and limit options
     refresh({ 
       limit: 20,
       sort: [{ field: "created_time", direction: "desc" }]
     });
-  }, [refresh]); // Don't include isLoading in dependencies
+  }, [refresh]);
 
   if (isLoading) return <div>Loading...</div>;
 
@@ -85,67 +93,23 @@ function UsersList() {
     </div>
   );
 }
-```
 
-## Data Loading Behavior
-
-The hook manages data in two ways:
-
-1. **Automatic Initial Load**
-- Happens once when a table is first accessed
-- No manual intervention needed
-- Caches the data in Redux store
-
-2. **Manual Refresh**
-- Used for applying new filters/sorting
-- Forces a fresh fetch regardless of cache
-- Useful for updating stale data
-
-```tsx
-// Example: Table Switching
-function TableViewer() {
-  const [selectedTable, setSelectedTable] = useState("users");
-  const { records, isLoading } = useDatabase(selectedTable);
-
-  // No refresh needed - data loads automatically
-  return (
-    <div>
-      <select onChange={(e) => setSelectedTable(e.target.value)}>
-        <option value="users">Users</option>
-        <option value="posts">Posts</option>
-      </select>
-      
-      {isLoading ? (
-        <div>Loading...</div>
-      ) : (
-        <div>{records.map(record => (
-          <div key={record.id}>{record.fields.name}</div>
-        ))}</div>
-      )}
-    </div>
-  );
-}
+export default UsersList;
 ```
 
 ## Features
 
 ### Automatic Data Loading
-Data is automatically loaded and cached when a table is first accessed:
+Data is automatically fetched and cached when a table is first accessed. Accessing the hook triggers initial schema and records loading without extra configuration:
+
 ```tsx
 const { records, isLoading } = useDatabase("users");
-// Data loads automatically, no manual fetch needed
 ```
 
 ### Manual Refresh
-Use `refresh()` to reload data with specific options:
+Force a fresh fetch of records with custom options—great for applying filters, sorting, or refreshing stale data.
 
 ```tsx
-const { refresh } = useDatabase("users");
-
-// Basic refresh
-refresh();
-
-// Refresh with options
 refresh({
   limit: 20,
   sort: [{ field: "created_time", direction: "desc" }],
@@ -154,31 +118,19 @@ refresh({
 ```
 
 ### Filtering
-Apply filters using various operators:
+Apply various filter operators to narrow down your results. Supported operators include `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `contains`, `startswith`, and `endswith`.
 
 ```tsx
 refresh({
   filters: [
     { field: "status", operator: "eq", value: "active" },
-    { field: "age", operator: "gte", value: 18 },
-    { field: "name", operator: "contains", value: "john" }
+    { field: "age", operator: "gte", value: 18 }
   ]
 });
 ```
 
-Available operators:
-- `eq` - Equals
-- `neq` - Not equals
-- `gt` - Greater than
-- `gte` - Greater than or equal
-- `lt` - Less than
-- `lte` - Less than or equal
-- `contains` - Case-insensitive text search
-- `startswith` - Case-insensitive prefix search
-- `endswith` - Case-insensitive suffix search
-
 ### Sorting
-Sort by multiple fields:
+Sort your records by one or multiple fields.
 
 ```tsx
 refresh({
@@ -190,9 +142,10 @@ refresh({
 ```
 
 ### Pagination
-Handle pagination using cursor-based system:
+Supports cursor-based pagination. Use the `fetchNextPage` method to seamlessly load additional records.
 
 ```tsx
+// PaginatedList.tsx
 function PaginatedList() {
   const { records, nextPageToken, fetchNextPage } = useDatabase("users");
 
@@ -208,12 +161,15 @@ function PaginatedList() {
     </div>
   );
 }
+
+export default PaginatedList;
 ```
 
 ### CRUD Operations
-Create, update, and delete records:
+Perform individual or bulk create, update, and delete operations:
 
 ```tsx
+// UserManager.tsx
 function UserManager() {
   const { 
     addRecord, 
@@ -225,16 +181,11 @@ function UserManager() {
 
   // Single record operations
   const handleCreate = async () => {
-    await addRecord({
-      name: "John Doe",
-      email: "john@example.com"
-    });
+    await addRecord({ name: "John Doe", email: "john@example.com" });
   };
 
   const handleUpdate = async (id: string) => {
-    await modifyRecord(id, {
-      status: "inactive"
-    });
+    await modifyRecord(id, { status: "inactive" });
   };
 
   const handleDelete = async (id: string) => {
@@ -244,8 +195,8 @@ function UserManager() {
   // Bulk operations
   const handleBulkCreate = async () => {
     await addRecords([
-      { name: "John Doe", email: "john@example.com" },
-      { name: "Jane Doe", email: "jane@example.com" }
+      { name: "User 1", email: "user1@example.com" },
+      { name: "User 2", email: "user2@example.com" }
     ]);
   };
 
@@ -253,106 +204,138 @@ function UserManager() {
     await removeRecords(["id1", "id2", "id3"]);
   };
 
-  return <div>{/* Your UI */}</div>;
+  return <div>{/* Your UI components here */}</div>;
 }
+
+export default UserManager;
 ```
 
 ### Field Selection
-Select specific fields and control the amount of records:
+Fetch only the specific fields you need by providing an array of field names along with the fetch options.
 
 ```tsx
 refresh({
-  fields: ["id", "name", "email"],  // Only fetch these fields
-  amount: "all"                     // "all" | "first" | "one"
+  fields: ["id", "name", "email"],
+  amount: "all" // Options: "all" | "first" | "one"
 });
 ```
 
 ## API Reference
 
+### Field Types
+The library defines a comprehensive set of field types. Example:
+
+```typescript
+enum FieldType {
+  SingleLineText = "singleLineText",
+  MultiLineText = "multiLineText",
+  Select = "select",
+  LongText = "longText",
+  Number = "number",
+  SingleSelect = "singleSelect",
+  MultiSelect = "multiSelect",
+  Date = "date",
+  DateTime = "dateTime",
+  Checkbox = "checkbox",
+  User = "user",
+  Attachment = "attachment",
+  Reference = "reference",
+  Email = "email",
+  Phone = "phone",
+  URL = "url",
+  Duration = "duration",
+  Rating = "rating",
+  Formula = "formula",
+  Rollup = "rollup",
+  Count = "count",
+  Lookup = "lookup",
+  Currency = "currency",
+  Percent = "percent",
+  ForeignKey = "foreignKey",
+  JSON = "json",
+  Trigger = "trigger"
+}
+```
+
+### Field Formatting Helpers
+Use the helpers to format field values appropriately.
+
+```typescript
+import { fieldHelpers } from "@altanlabs/database";
+
+fieldHelpers.formatFieldValue(value, field);
+fieldHelpers.formatDateValue(date, includeTime);
+fieldHelpers.formatBooleanValue(value);
+fieldHelpers.formatNumberValue(value, field);
+fieldHelpers.formatCurrencyValue(value, field);
+fieldHelpers.formatPercentValue(value, field);
+fieldHelpers.formatDurationValue(value);
+fieldHelpers.formatMultiSelectValue(value);
+fieldHelpers.formatJSONValue(value);
+```
+
 ### useDatabase Hook
+The hook returns an object with data, state flags, and operations:
+
 ```typescript
 const {
   // Data
-  records: Array<{ id: string; fields: Record<string, any> }>,
-  schema: any,
-  
-  // States
-  isLoading: boolean,
-  schemaLoading: boolean,
-  nextPageToken: string | null,
-  
-  // Single Record Operations
-  refresh: (options?: FetchOptions) => Promise<void>,
-  fetchNextPage: () => Promise<void>,
-  addRecord: (record: any) => Promise<void>,
-  modifyRecord: (id: string, updates: any) => Promise<void>,
-  removeRecord: (id: string) => Promise<void>,
-  
-  // Bulk Operations
-  addRecords: (records: any[]) => Promise<void>,
-  removeRecords: (ids: string[]) => Promise<void>
-} = useDatabase(tableName: string);
-```
+  records,          // Array of records
+  schema,           // Table schema or null
 
-### FetchOptions Interface
-```typescript
-interface FetchOptions {
-  limit?: number;                   // Records per page
-  filters?: Array<{                 // Filter conditions
-    field: string;
-    operator: string;
-    value: unknown;
-  }>;
-  sort?: Array<{                    // Sort conditions
-    field: string;
-    direction: "asc" | "desc";
-  }>;
-  pageToken?: string;              // For pagination
-  fields?: string[];               // Fields to select
-  amount?: "all" | "first" | "one"; // Amount of records to fetch
-}
+  // Loading States
+  isLoading,        // Records are loading
+  schemaLoading,    // Schema is loading
+
+  // Error Information
+  error,
+
+  // Pagination
+  nextPageToken,
+  lastUpdated,
+
+  // Operations
+  refresh,          // Refresh records with options
+  fetchNextPage,    // Load next page of records
+  addRecord,        // Create a new record
+  modifyRecord,     // Update an existing record
+  removeRecord,     // Delete a record
+  addRecords,       // Bulk create records
+  removeRecords     // Bulk delete records
+} = useDatabase("tableName");
 ```
 
 ## Best Practices
 
-1. **Automatic Loading**
-- Let the hook handle initial data loading
-- Don't manually trigger refresh unless needed
+- **Automatic Loading:** Allow the hook to manage initial data loading automatically.
+- **Refresh Usage:** Use the `refresh` method to apply new filters or sorting. Avoid including loading flags like `isLoading` in `useEffect` dependencies to prevent infinite loops.
+- **Error Handling:** Wrap asynchronous operations in try/catch blocks and use provided error callbacks where necessary.
 
-2. **Refresh Usage**
-- Use refresh for applying new filters/sorting
-- Don't include isLoading in useEffect dependencies
+Example:
+
 ```tsx
-// ✅ Correct
 useEffect(() => {
-  refresh(options);
+  refresh({ limit: 20 });
 }, [refresh]);
-
-// ❌ Incorrect - will cause infinite loops
-useEffect(() => {
-  if (!isLoading) {
-    refresh(options);
-  }
-}, [refresh, isLoading]);
 ```
 
-3. **Error Handling**
-```tsx
-try {
-  await addRecord(newRecord);
-} catch (error) {
-  console.error("Failed to add record:", error);
-}
-```
+## Troubleshooting
+
+### Common Issues
+1. **Infinite Refresh Loops:** Ensure that your dependency arrays in `useEffect` do not include state flags like `isLoading`.
+2. **Stale Data:** Trigger a manual refresh to update cached data.
+3. **Missing Initial Data:** Rely on the automatic data fetch rather than manually trying to load data.
 
 ## Examples
 
-### Complete Table Manager
+For complete examples, please refer to the `examples` directory in this repository.
+
+### Complete Table Manager Example
 ```tsx
 function TableManager() {
   const { 
-    records, 
-    isLoading, 
+    records,
+    isLoading,
     refresh,
     addRecord,
     modifyRecord,
@@ -361,68 +344,48 @@ function TableManager() {
     removeRecords
   } = useDatabase("users");
 
-  // Apply filters and sorting
-  const handleFilter = () => {
-    refresh({
-      filters: [{ field: "status", operator: "eq", value: "active" }],
-      sort: [{ field: "created_at", direction: "desc" }],
-      limit: 20
-    });
-  };
-
-  // Single record operations
-  const handleAdd = () => addRecord({ name: "New User" });
-  const handleUpdate = (id: string) => modifyRecord(id, { status: "updated" });
-  const handleDelete = (id: string) => removeRecord(id);
-
-  // Bulk operations
-  const handleBulkAdd = () => {
-    addRecords([
-      { name: "User 1" },
-      { name: "User 2" }
-    ]);
-  };
-  
-  const handleBulkDelete = (ids: string[]) => removeRecords(ids);
-
   if (isLoading) return <div>Loading...</div>;
 
   return (
     <div>
-      <button onClick={handleFilter}>Filter Active Users</button>
-      <button onClick={handleAdd}>Add User</button>
-      <button onClick={handleBulkAdd}>Add Multiple Users</button>
-      {records.map(record => (
-        <div key={record.id}>
-          {record.fields.name}
-          <button onClick={() => handleUpdate(record.id)}>Update</button>
-          <button onClick={() => handleDelete(record.id)}>Delete</button>
-        </div>
-      ))}
-      <button onClick={() => handleBulkDelete(records.map(r => r.id))}>
-        Delete All Shown
+      <button onClick={() => refresh({ 
+        filters: [{ field: "status", operator: "eq", value: "active" }], 
+        sort: [{ field: "created_at", direction: "desc" }],
+        limit: 20 
+      })}>
+        Filter Active Users
       </button>
+      <button onClick={() => addRecord({ name: "New User" })}>
+        Add User
+      </button>
+      <div>
+        {records.map(record => (
+          <div key={record.id}>
+            {record.fields.name}
+            <button onClick={() => modifyRecord(record.id, { status: "updated" })}>
+              Update
+            </button>
+            <button onClick={() => removeRecord(record.id)}>
+              Delete
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 ```
 
-## Troubleshooting
+### Field Formatting Example
+```tsx
+import { fieldHelpers } from "@altanlabs/database";
 
-### Common Issues
-
-1. **Infinite Refresh Loops**
-- Cause: Including isLoading in useEffect dependencies
-- Solution: Remove isLoading from dependency array
-
-2. **Missing Initial Data**
-- Cause: Manually managing initial load
-- Solution: Let the hook handle initial loading automatically
-
-3. **Stale Data**
-- Cause: Relying only on automatic loading
-- Solution: Use refresh when data needs updating
+function FormattedValue({ value, field }) {
+  const formattedValue = fieldHelpers.formatFieldValue(value, field);
+  return <span>{formattedValue}</span>;
+}
+```
 
 ## License
 
-MIT License - see LICENSE for details
+MIT License - see [LICENSE](./LICENSE) for details.
