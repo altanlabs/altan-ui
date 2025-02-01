@@ -1,5 +1,5 @@
-```md
-# Altan UI
+
+# Altan 
 
 Altan UI is a comprehensive framework for AI agents to seamlessly integrate backend logic into user interfaces and build them using pre-existing components. The framework consolidates three main modules:
 
@@ -92,4 +92,3 @@ Contributions to Altan UI are welcome! Please open issues or submit pull request
 ## License
 
 MIT
-```
