@@ -13,7 +13,10 @@ import {
 import { useAppDispatch } from "./useAppDispatch";
 import { FetchOptions, DatabaseHookReturn, RootState } from "../store/types";
 
-export function useDatabase(table: string): DatabaseHookReturn {
+export function useDatabase(
+  table: string,
+  initialQuery?: FetchOptions
+): DatabaseHookReturn {
   const dispatch = useAppDispatch();
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const requestInProgress = useRef<Record<string, boolean>>({});
@@ -38,7 +41,7 @@ export function useDatabase(table: string): DatabaseHookReturn {
   );
 
   useEffect(() => {
-    if (!table) return;
+    if (!table || error) return;
     if (
       !schema &&
       !isLoadingSchema &&
@@ -56,12 +59,24 @@ export function useDatabase(table: string): DatabaseHookReturn {
     ) {
       requestInProgress.current[`records_${table}`] = true;
       dispatch(
-        fetchTableRecords({ tableName: table, queryParams: { limit: 20 } })
+        fetchTableRecords({
+          tableName: table,
+          queryParams: initialQuery || { limit: 100 },
+        })
       ).finally(() => {
         requestInProgress.current[`records_${table}`] = false;
       });
     }
-  }, [table, schema, initialized, isLoadingRecords, isLoadingSchema, dispatch]);
+  }, [
+    table,
+    schema,
+    initialized,
+    isLoadingRecords,
+    isLoadingSchema,
+    dispatch,
+    error,
+    initialQuery,
+  ]);
 
   const refresh = useCallback(
     async (
@@ -131,9 +146,14 @@ export function useDatabase(table: string): DatabaseHookReturn {
           onError?.(e as Error);
         }
       },
-      removeRecords: async (recordIds: string[], onError?: (e: Error) => void) => {
+      removeRecords: async (
+        recordIds: string[],
+        onError?: (e: Error) => void
+      ) => {
         try {
-          await dispatch(deleteRecords({ tableName: table, recordIds })).unwrap();
+          await dispatch(
+            deleteRecords({ tableName: table, recordIds })
+          ).unwrap();
         } catch (e) {
           onError?.(e as Error);
         }

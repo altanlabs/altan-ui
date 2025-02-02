@@ -50,7 +50,7 @@ var react_1 = require("react");
 var react_redux_1 = require("react-redux");
 var tablesSlice_1 = require("../store/tablesSlice");
 var useAppDispatch_1 = require("./useAppDispatch");
-function useDatabase(table) {
+function useDatabase(table, initialQuery) {
     var _this = this;
     var dispatch = (0, useAppDispatch_1.useAppDispatch)();
     var _a = (0, react_1.useState)(null), nextPageToken = _a[0], setNextPageToken = _a[1];
@@ -68,7 +68,7 @@ function useDatabase(table) {
         lastUpdated: (tableData === null || tableData === void 0 ? void 0 : tableData.lastUpdated) || null,
     }); }, [tableData]), records = _b.records, schema = _b.schema, initialized = _b.initialized, lastUpdated = _b.lastUpdated;
     (0, react_1.useEffect)(function () {
-        if (!table)
+        if (!table || error)
             return;
         if (!schema &&
             !isLoadingSchema &&
@@ -82,11 +82,23 @@ function useDatabase(table) {
             !isLoadingRecords &&
             !requestInProgress.current["records_".concat(table)]) {
             requestInProgress.current["records_".concat(table)] = true;
-            dispatch((0, tablesSlice_1.fetchTableRecords)({ tableName: table, queryParams: { limit: 20 } })).finally(function () {
+            dispatch((0, tablesSlice_1.fetchTableRecords)({
+                tableName: table,
+                queryParams: initialQuery || { limit: 100 },
+            })).finally(function () {
                 requestInProgress.current["records_".concat(table)] = false;
             });
         }
-    }, [table, schema, initialized, isLoadingRecords, isLoadingSchema, dispatch]);
+    }, [
+        table,
+        schema,
+        initialized,
+        isLoadingRecords,
+        isLoadingSchema,
+        dispatch,
+        error,
+        initialQuery,
+    ]);
     var refresh = (0, react_1.useCallback)(function () {
         var args_1 = [];
         for (var _i = 0; _i < arguments.length; _i++) {

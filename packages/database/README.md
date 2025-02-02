@@ -33,7 +33,7 @@ npm install @altanlabs/database
 
 ### Setting Up the Provider
 
-Wrap your application with the `DatabaseProvider`, passing the configuration including the API base URL and your sample table mappings.
+Wrap your application with the `DatabaseProvider`, passing your configuration. **Important:** Each table ID in the `SAMPLE_TABLES` configuration **must** be a valid UUID. Any value that does not match the UUID format (e.g., `"table_name"`) will cause a validation error.
 
 ```tsx
 // App.tsx
@@ -42,7 +42,8 @@ import { DatabaseProvider } from "@altanlabs/database";
 const config = {
   API_BASE_URL: "https://api.example.com",
   SAMPLE_TABLES: {
-    users: "1b52a5c4-ce93-4790-aa2a-d186daa2068d",
+    // Valid table IDs as UUIDs:
+    users: "0566cb6e-4de5-4004-a5a9-7220fda31600",
     posts: "d8812981-b246-4de4-8ef9-40fa8a7dbbda"
   }
 };
@@ -60,7 +61,7 @@ export default App;
 
 ### Using the Database Hook
 
-Access your table data easily with the `useDatabase` hook. Below is an example of a simple users list:
+Access your table data easily with the `useDatabase` hook. You can now pass an optional initial query as the second argument to immediately apply filters, sorting, and other query options on initialization. Below is an example of a simple users list:
 
 ```tsx
 // UsersList.tsx
@@ -68,20 +69,16 @@ import { useDatabase } from "@altanlabs/database";
 import { useEffect } from "react";
 
 function UsersList() {
+  // Pass an initial query to set the default options
   const { 
     records, 
     schema, 
     isLoading, 
     refresh 
-  } = useDatabase("users");
-
-  useEffect(() => {
-    // Fetch initial data with sort and limit options
-    refresh({ 
-      limit: 20,
-      sort: [{ field: "created_time", direction: "desc" }]
-    });
-  }, [refresh]);
+  } = useDatabase("users", {
+    limit: 20,
+    sort: [{ field: "created_time", direction: "desc" }]
+  });
 
   if (isLoading) return <div>Loading...</div>;
 
@@ -96,6 +93,33 @@ function UsersList() {
 
 export default UsersList;
 ```
+
+### Query Options
+
+The initial query (as well as the options passed to the `refresh` method) supports the following parameters:
+
+- **filters**: An array of filter objects to narrow down your results. Each object should include:
+  - `field`: The field name to filter on.
+  - `operator`: The operator (e.g., `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `contains`, `startswith`, `endswith`).
+  - `value`: The value to compare.
+- **sort**: An array of sort objects to order records. Each sort object should include:
+  - `field`: The field to sort by.
+  - `direction`: The direction for the sort, typically `"asc"` or `"desc"`.
+- **limit**: A number specifying the maximum number of records to retrieve.
+- **pageToken**: A token string used for cursor-based pagination.
+- **fields**: An array of field names you wish to select.
+- **amount**: Specifies how many records to fetch and can be one of `"all"`, `"first"`, or `"one"`.
+
+For example, to fetch only specific fields and control the amount of data:
+```tsx
+refresh({
+  fields: ["id", "name", "email"],
+  amount: "all",
+  limit: 20
+});
+```
+
+*Note:* If no initial query is provided, the hook uses a default option (e.g., `{ limit: 20 }`).
 
 ## Features
 
@@ -295,7 +319,7 @@ const {
   lastUpdated,
 
   // Operations
-  refresh,          // Refresh records with options
+  refresh,          // Refresh records with options. Use carefully. 
   fetchNextPage,    // Load next page of records
   addRecord,        // Create a new record
   modifyRecord,     // Update an existing record
@@ -311,13 +335,6 @@ const {
 - **Refresh Usage:** Use the `refresh` method to apply new filters or sorting. Avoid including loading flags like `isLoading` in `useEffect` dependencies to prevent infinite loops.
 - **Error Handling:** Wrap asynchronous operations in try/catch blocks and use provided error callbacks where necessary.
 
-Example:
-
-```tsx
-useEffect(() => {
-  refresh({ limit: 20 });
-}, [refresh]);
-```
 
 ## Troubleshooting
 
@@ -331,6 +348,7 @@ useEffect(() => {
 For complete examples, please refer to the `examples` directory in this repository.
 
 ### Complete Table Manager Example
+
 ```tsx
 function TableManager() {
   const { 
@@ -388,4 +406,4 @@ function FormattedValue({ value, field }) {
 
 ## License
 
-MIT License - see [LICENSE](./LICENSE) for details.
+MIT License

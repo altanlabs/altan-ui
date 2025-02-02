@@ -10,10 +10,12 @@ var react_1 = require("react");
 var react_redux_1 = require("react-redux");
 var toolkit_1 = require("@reduxjs/toolkit");
 var tablesSlice_1 = __importDefault(require("./tablesSlice"));
+var config_1 = require("../config");
 var tablesSlice_2 = require("./tablesSlice");
 var axios_1 = require("../api/axios");
 var DatabaseProvider = function (_a) {
     var config = _a.config, children = _a.children, _b = _a.customMiddleware, customMiddleware = _b === void 0 ? [] : _b;
+    (0, config_1.validateDatabaseConfig)(config);
     // Create the Redux store once using useMemo.
     var store = (0, react_1.useMemo)(function () {
         var s = (0, toolkit_1.configureStore)({

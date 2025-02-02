@@ -4,6 +4,7 @@ import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
 import tablesReducer from "./tablesSlice";
 import type { DatabaseConfig } from "../config";
+import { validateDatabaseConfig } from "../config";
 import { initializeTables } from "./tablesSlice";
 import { createAltanDB } from "../api/axios";
 
@@ -19,6 +20,9 @@ export const DatabaseProvider = ({
   children,
   customMiddleware = [],
 }: DatabaseProviderProps): JSX.Element => {
+
+  validateDatabaseConfig(config);
+
   // Create the Redux store once using useMemo.
   const store = useMemo(() => {
     const s = configureStore({
