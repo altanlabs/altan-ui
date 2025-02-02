@@ -75,14 +75,6 @@ function UsersList() {
     refresh 
   } = useDatabase("users");
 
-  useEffect(() => {
-    // Fetch initial data with sort and limit options
-    refresh({ 
-      limit: 20,
-      sort: [{ field: "created_time", direction: "desc" }]
-    });
-  }, [refresh]);
-
   if (isLoading) return <div>Loading...</div>;
 
   return (
